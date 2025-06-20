@@ -248,39 +248,172 @@ SELECT calculate_class_fund_balance(1);
 SELECT calculate_class_fund_balance(2);
 SELECT calculate_class_fund_balance(3);
 
--- 更新学生GPA
-SELECT update_student_credits_and_gpa(id) FROM students WHERE id BETWEEN 1005 AND 1024;
+-- 更新学生GPA (如果存在该函数)
+-- SELECT update_student_credits_and_gpa(id) FROM students WHERE id BETWEEN 1005 AND 1024;
 
--- 插入更多测试数据以便演示复杂查询
--- 添加更多考勤记录
+-- 更新班级总人数
+UPDATE classes SET total_students = (
+    SELECT COUNT(*) FROM students WHERE class_id = classes.id
+);
+
+-- 更新活动参与人数
+UPDATE class_activities SET participant_count = (
+    SELECT COUNT(*) 
+    FROM attendance 
+    WHERE activity_id = class_activities.id 
+    AND attendance_type = 'activity'
+    AND status IN ('present', 'late')
+);
+
+-- 更新活动实际花费
+UPDATE class_activities 
+SET actual_cost = budget_amount * (0.7 + random() * 0.25)
+WHERE status = 'completed';
+
+-- 插入更多测试数据以便演示复杂查询和统计功能
+-- 添加更多考勤记录 (多个日期和课程)
 INSERT INTO attendance (student_id, course_schedule_id, attendance_date, attendance_type, status, check_in_time) 
 SELECT 
     s.id,
-    1,
-    '2024-09-09'::date,
+    cs.id,
+    date_val,
     'course',
-    CASE WHEN random() < 0.1 THEN 'absent'
-         WHEN random() < 0.15 THEN 'late' 
+    CASE WHEN random() < 0.08 THEN 'absent'
+         WHEN random() < 0.12 THEN 'late' 
          ELSE 'present' END,
-    CASE WHEN random() < 0.1 THEN NULL
-         ELSE '2024-09-09 08:00:00'::timestamp + (random() * 600)::int * INTERVAL '1 second'
+    CASE WHEN random() < 0.08 THEN NULL
+         ELSE (date_val || ' ' || cs.start_time)::timestamp + (random() * 300)::int * INTERVAL '1 second'
          END
-FROM students s WHERE s.class_id = 1;
+FROM students s
+CROSS JOIN (
+    SELECT unnest(ARRAY['2024-09-09', '2024-09-16', '2024-09-23', '2024-09-30', '2024-10-07', 
+                        '2024-10-14', '2024-10-21', '2024-10-28', '2024-11-04', '2024-11-11']) as date_val
+) dates
+CROSS JOIN course_schedule cs
+WHERE s.class_id = cs.class_id AND cs.semester = '2024-1';
+
+-- 插入更多活动考勤记录
+INSERT INTO attendance (student_id, activity_id, attendance_date, attendance_type, status, check_in_time, notes)
+SELECT 
+    s.id,
+    a.id,
+    a.start_time::date,
+    'activity',
+    CASE 
+        WHEN a.required_attendance AND random() < 0.95 THEN 'present'
+        WHEN a.required_attendance AND random() < 0.97 THEN 'late'
+        WHEN a.required_attendance THEN 'absent'
+        WHEN random() < 0.75 THEN 'present'
+        WHEN random() < 0.80 THEN 'late'
+        ELSE 'absent'
+    END,
+    CASE WHEN random() < 0.05 THEN NULL
+         ELSE a.start_time + (random() * 900)::int * INTERVAL '1 second'
+         END,
+    CASE WHEN random() < 0.1 THEN '有特殊情况' ELSE NULL END
+FROM students s
+CROSS JOIN class_activities a
+WHERE s.class_id = a.class_id AND a.status = 'completed';
+
+-- 插入更多班费记录以展示财务管理功能
+INSERT INTO class_funds (class_id, transaction_type, amount, category, description, transaction_date, payment_method, handler_id, approver_id, status) VALUES
+-- 更多收入记录
+(1, 'income', 300.00, '奖学金', '班级获得优秀班集体奖学金', '2024-10-01', 'bank_transfer', 1005, 1001, 'approved'),
+(2, 'income', 200.00, '活动收入', '篮球比赛获奖奖金', '2024-10-25', 'cash', 1015, 1002, 'approved'),
+(3, 'income', 400.00, '企业赞助', '软件企业实习基地赞助', '2024-11-01', 'bank_transfer', 1020, 1003, 'approved'),
+-- 更多支出记录
+(1, 'expense', 120.00, '办公用品', '购买学习用品和打印资料', '2024-10-05', 'alipay', 1006, 1005, 'approved'),
+(1, 'expense', 280.00, '活动支出', '班级团建活动费用', '2024-10-12', 'cash', 1007, 1005, 'approved'),
+(2, 'expense', 150.00, '交通费', '参观企业交通费用', '2024-10-30', 'bank_transfer', 1016, 1015, 'approved'),
+(2, 'expense', 90.00, '办公用品', '期中考试复习资料', '2024-11-08', 'cash', 1015, NULL, 'pending'),
+(3, 'expense', 200.00, '活动支出', '软件作品展示材料费', '2024-11-18', 'alipay', 1021, 1020, 'approved'),
+(3, 'expense', 180.00, '奖品费用', '编程竞赛奖品采购', '2024-11-20', 'cash', 1020, NULL, 'pending');
+
+-- 插入更多通知以展示通知管理功能
+INSERT INTO notifications (title, content, notification_type, priority, target_type, target_id, sender_id, is_published, publish_time) VALUES
+('期末考试时间安排', '期末考试安排如下：\n- 计算机科学导论：12月25日 9:00-11:00\n- 程序设计基础：12月27日 14:00-16:00\n- 数据结构与算法：12月29日 9:00-11:00\n请同学们提前准备，合理安排复习时间。', '班级通知', 'high', 'class', 1, 1001, true, '2024-12-01 10:00:00'),
+('研究生入学考试报名提醒', '2025年研究生入学考试报名即将截止，有意向的同学请抓紧时间报名。\n报名截止时间：12月20日\n考试时间：2025年3月\n如需了解更多信息，请联系辅导员。', '学院通知', 'normal', 'all', NULL, 1000, true, '2024-12-05 15:30:00'),
+('寒假放假安排', '根据学校安排，寒假放假时间为：\n放假时间：1月15日\n开学时间：2月28日\n请同学们注意往返安全，假期保持学习状态。', '学院通知', 'normal', 'all', NULL, 1000, true, '2024-12-10 11:00:00'),
+('课程设计作品提交通知', '各位同学，程序设计基础课程设计作品提交要求：\n1. 提交截止时间：12月20日23:59\n2. 提交格式：压缩包，包含源代码和说明文档\n3. 命名规范：学号_姓名_作品名称\n请按时提交，逾期将影响成绩。', '班级通知', 'high', 'class', 1, 1001, true, '2024-12-08 16:00:00'),
+('实习招聘会通知', '学院将举办2025年春季实习招聘会：\n时间：12月25日 14:00-17:00\n地点：学院报告厅\n参与企业：华为、阿里巴巴、腾讯等20家知名企业\n欢迎大三、大四学生参加！', '学院通知', 'normal', 'department', NULL, 1000, true, '2024-12-12 09:00:00');
 
 -- 提交事务
 COMMIT;
 
--- 数据验证查询
-SELECT '用户总数：' || COUNT(*) FROM users;
-SELECT '教师总数：' || COUNT(*) FROM teachers;
-SELECT '学生总数：' || COUNT(*) FROM students;
-SELECT '班级总数：' || COUNT(*) FROM classes;
-SELECT '课程总数：' || COUNT(*) FROM courses;
-SELECT '课程安排总数：' || COUNT(*) FROM course_schedule;
-SELECT '活动总数：' || COUNT(*) FROM class_activities;
-SELECT '考勤记录总数：' || COUNT(*) FROM attendance;
-SELECT '成绩记录总数：' || COUNT(*) FROM grades;
-SELECT '班费记录总数：' || COUNT(*) FROM class_funds;
-SELECT '通知总数：' || COUNT(*) FROM notifications;
-SELECT '权限总数：' || COUNT(*) FROM permissions;
-SELECT '用户权限关联总数：' || COUNT(*) FROM user_permissions;
+-- 数据验证查询和统计报告
+SELECT '=== 数据库测试数据统计报告 ===' as report_title;
+SELECT '用户总数：' || COUNT(*) as user_count FROM users;
+SELECT '教师总数：' || COUNT(*) as teacher_count FROM teachers;
+SELECT '学生总数：' || COUNT(*) as student_count FROM students;
+SELECT '班级总数：' || COUNT(*) as class_count FROM classes;
+SELECT '课程总数：' || COUNT(*) as course_count FROM courses;
+SELECT '课程安排总数：' || COUNT(*) as schedule_count FROM course_schedule;
+SELECT '活动总数：' || COUNT(*) as activity_count FROM class_activities;
+SELECT '考勤记录总数：' || COUNT(*) as attendance_count FROM attendance;
+SELECT '成绩记录总数：' || COUNT(*) as grade_count FROM grades;
+SELECT '班费记录总数：' || COUNT(*) as fund_count FROM class_funds;
+SELECT '通知总数：' || COUNT(*) as notification_count FROM notifications;
+SELECT '权限总数：' || COUNT(*) as permission_count FROM permissions;
+SELECT '用户权限关联总数：' || COUNT(*) as user_permission_count FROM user_permissions;
+
+-- 详细统计信息
+SELECT '\n=== 详细统计信息 ===' as detail_title;
+
+-- 各班级学生人数统计
+SELECT 
+    c.class_name,
+    c.class_code,
+    COUNT(s.id) as student_count,
+    c.total_students as recorded_total
+FROM classes c
+LEFT JOIN students s ON c.id = s.class_id
+GROUP BY c.id, c.class_name, c.class_code, c.total_students
+ORDER BY c.id;
+
+-- 课程类型统计
+SELECT 
+    course_type,
+    COUNT(*) as course_count,
+    AVG(credits) as avg_credits
+FROM courses
+GROUP BY course_type
+ORDER BY course_count DESC;
+
+-- 成绩统计
+SELECT 
+    c.course_name,
+    COUNT(g.id) as grade_records,
+    ROUND(AVG((g.regular_score * 0.3 + g.midterm_score * 0.3 + g.final_score * 0.4)), 2) as avg_total_score
+FROM courses c
+LEFT JOIN grades g ON c.id = g.course_id
+GROUP BY c.id, c.course_name
+HAVING COUNT(g.id) > 0
+ORDER BY avg_total_score DESC;
+
+-- 班费统计
+SELECT 
+    cl.class_name,
+    SUM(CASE WHEN cf.transaction_type = 'income' THEN cf.amount ELSE 0 END) as total_income,
+    SUM(CASE WHEN cf.transaction_type = 'expense' THEN cf.amount ELSE 0 END) as total_expense,
+    SUM(CASE WHEN cf.transaction_type = 'income' THEN cf.amount ELSE -cf.amount END) as balance
+FROM classes cl
+LEFT JOIN class_funds cf ON cl.id = cf.class_id AND cf.status = 'approved'
+GROUP BY cl.id, cl.class_name
+ORDER BY balance DESC;
+
+-- 活动参与统计
+SELECT 
+    ca.activity_name,
+    ca.activity_type,
+    ca.participant_count,
+    COUNT(a.id) as attendance_records,
+    COUNT(CASE WHEN a.status = 'present' THEN 1 END) as present_count,
+    COUNT(CASE WHEN a.status = 'absent' THEN 1 END) as absent_count
+FROM class_activities ca
+LEFT JOIN attendance a ON ca.id = a.activity_id
+WHERE ca.status = 'completed'
+GROUP BY ca.id, ca.activity_name, ca.activity_type, ca.participant_count
+ORDER BY ca.id;
+
+SELECT '\n=== 测试数据插入完成 ===' as completion_message;
+SELECT '数据库已准备就绪，可以进行前端功能测试。' as ready_message;

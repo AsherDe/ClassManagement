@@ -212,4 +212,50 @@ router.get('/:id/attendance', async (req, res) => {
     }
 });
 
+/**
+ * @route DELETE /api/activities/:id
+ * @desc 删除活动
+ * @access Private
+ */
+router.delete('/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // 检查活动是否存在
+        const activity = await db.findOne('class_activities', { id });
+        if (!activity) {
+            return res.status(404).json({
+                success: false,
+                message: '活动不存在'
+            });
+        }
+
+        // 检查活动状态，进行中的活动不能删除
+        if (activity.status === 'ongoing') {
+            return res.status(400).json({
+                success: false,
+                message: '进行中的活动不能删除'
+            });
+        }
+
+        // 删除相关的考勤记录
+        await db.query('DELETE FROM attendance WHERE activity_id = $1', [id]);
+
+        // 删除活动
+        await db.query('DELETE FROM class_activities WHERE id = $1', [id]);
+
+        res.json({
+            success: true,
+            message: '活动删除成功'
+        });
+
+    } catch (error) {
+        console.error('删除活动错误:', error);
+        res.status(500).json({
+            success: false,
+            message: '删除活动失败'
+        });
+    }
+});
+
 module.exports = router;

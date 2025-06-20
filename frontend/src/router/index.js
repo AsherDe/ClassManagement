@@ -133,6 +133,12 @@ const routes = [
         name: 'ActivityList',
         component: () => import('@/views/activities/index.vue'),
         meta: { title: '班级活动', icon: 'Trophy' }
+      },
+      {
+        path: ':id',
+        name: 'ActivityDetail',
+        component: () => import('@/views/activities/detail.vue'),
+        meta: { title: '活动详情', hidden: true }
       }
     ]
   },
