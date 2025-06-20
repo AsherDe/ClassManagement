@@ -319,7 +319,7 @@ A: 检查用户权限配置，确保权限表数据正确。
 
 ## 许可证
 
-MIT License
+Apache License
 
 ## 贡献指南
 
