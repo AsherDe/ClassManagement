@@ -53,6 +53,12 @@ const routes = [
         name: 'GradeList',
         component: () => import('@/views/grades/index.vue'),
         meta: { title: '成绩管理', icon: 'DocumentChecked' }
+      },
+      {
+        path: 'statistics',
+        name: 'GradeStatistics',
+        component: () => import('@/views/grades/statistics.vue'),
+        meta: { title: '成绩统计', icon: 'TrendCharts' }
       }
     ]
   },
@@ -87,6 +93,18 @@ const routes = [
         name: 'CourseList',
         component: () => import('@/views/courses/index.vue'),
         meta: { title: '课程管理', icon: 'Notebook' }
+      },
+      {
+        path: ':id',
+        name: 'CourseDetail',
+        component: () => import('@/views/courses/detail.vue'),
+        meta: { title: '课程详情', hidden: true }
+      },
+      {
+        path: 'schedule',
+        name: 'CourseSchedule',
+        component: () => import('@/views/courses/schedule.vue'),
+        meta: { title: '课程安排', icon: 'Calendar' }
       }
     ]
   },
