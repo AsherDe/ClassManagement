@@ -8,8 +8,39 @@ const activityValidationRules = () => {
         body('class_id').isInt({ min: 1 }).withMessage('班级ID必须是正整数'),
         body('activity_name').notEmpty().withMessage('活动名称不能为空').isLength({ max: 200 }).withMessage('活动名称长度不能超过200字符'),
         body('activity_type').notEmpty().withMessage('活动类型不能为空'),
-        body('start_time').isISO8601().withMessage('开始时间格式不正确'),
-        body('end_time').optional().isISO8601().withMessage('结束时间格式不正确')
+        body('start_time').custom((value) => {
+            // 支持多种时间格式：ISO8601、时间戳、或 HH:mm 格式
+            if (!value) return false;
+            
+            // 检查是否为ISO8601格式
+            const iso8601Regex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?$/;
+            if (iso8601Regex.test(value)) return true;
+            
+            // 检查是否为时间戳
+            if (!isNaN(Date.parse(value))) return true;
+            
+            // 检查是否为HH:mm或HH:mm:ss格式
+            const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/;
+            if (timeRegex.test(value)) return true;
+            
+            throw new Error('开始时间格式不正确，支持ISO8601、时间戳或HH:mm格式');
+        }),
+        body('end_time').optional().custom((value) => {
+            if (!value) return true; // 可选字段
+            
+            // 检查是否为ISO8601格式
+            const iso8601Regex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?$/;
+            if (iso8601Regex.test(value)) return true;
+            
+            // 检查是否为时间戳
+            if (!isNaN(Date.parse(value))) return true;
+            
+            // 检查是否为HH:mm或HH:mm:ss格式
+            const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/;
+            if (timeRegex.test(value)) return true;
+            
+            throw new Error('结束时间格式不正确，支持ISO8601、时间戳或HH:mm格式');
+        })
     ];
 };
 
@@ -127,7 +158,30 @@ router.post('/', activityValidationRules(), async (req, res) => {
             });
         }
 
-        const activityData = req.body;
+        const activityData = { ...req.body };
+        
+        // 处理时间格式转换
+        if (activityData.start_time && activityData.activity_date) {
+            // 如果是HH:mm格式，结合activity_date转换为完整的datetime
+            const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/;
+            if (timeRegex.test(activityData.start_time)) {
+                const date = new Date(activityData.activity_date);
+                const [hours, minutes] = activityData.start_time.split(':');
+                date.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                activityData.start_time = date.toISOString();
+            }
+        }
+        
+        if (activityData.end_time && activityData.activity_date) {
+            const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/;
+            if (timeRegex.test(activityData.end_time)) {
+                const date = new Date(activityData.activity_date);
+                const [hours, minutes] = activityData.end_time.split(':');
+                date.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                activityData.end_time = date.toISOString();
+            }
+        }
+        
         const activity = await db.create('class_activities', activityData);
 
         res.status(201).json({

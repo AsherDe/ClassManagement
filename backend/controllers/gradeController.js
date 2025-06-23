@@ -74,15 +74,53 @@ const gradeController = {
             const dataQuery = gradesQuery + ` LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
             queryParams.push(limit, offset);
 
-            // 计算总数
-            const countQuery = gradesQuery.replace(
-                /SELECT[\s\S]*?FROM grades g/,
-                'SELECT COUNT(*) as total FROM grades g'
-            );
+            // 计算总数 - 简化查询，避免GROUP BY问题
+            let countQuery = `
+                SELECT COUNT(*) as total
+                FROM grades g
+                JOIN students s ON g.student_id = s.id
+                JOIN courses c ON g.course_id = c.id
+                JOIN classes cl ON s.class_id = cl.id
+                WHERE 1=1
+            `;
+            
+            // 添加相同的过滤条件
+            let countParamCount = 0;
+            let countParams = [];
+            
+            if (course_id) {
+                countParamCount++;
+                countQuery += ` AND g.course_id = $${countParamCount}`;
+                countParams.push(course_id);
+            }
+            
+            if (class_id) {
+                countParamCount++;
+                countQuery += ` AND s.class_id = $${countParamCount}`;
+                countParams.push(class_id);
+            }
+            
+            if (semester) {
+                countParamCount++;
+                countQuery += ` AND g.semester = $${countParamCount}`;
+                countParams.push(semester);
+            }
+            
+            if (academic_year) {
+                countParamCount++;
+                countQuery += ` AND g.academic_year = $${countParamCount}`;
+                countParams.push(academic_year);
+            }
+            
+            if (student_id) {
+                countParamCount++;
+                countQuery += ` AND g.student_id = $${countParamCount}`;
+                countParams.push(student_id);
+            }
 
             const [gradesResult, countResult] = await Promise.all([
                 db.query(dataQuery, queryParams),
-                db.query(countQuery, queryParams.slice(0, paramCount))
+                db.query(countQuery, countParams)
             ]);
 
             const total = parseInt(countResult.rows[0].total);
@@ -123,7 +161,7 @@ const gradeController = {
 
             const gradeData = {
                 ...req.body,
-                recorder_id: req.user.id,
+                recorder_id: req.user?.id || 1001, // 默认使用第一个教师ID，或从认证获取
                 recorded_at: new Date()
             };
 
@@ -210,7 +248,7 @@ const gradeController = {
             const { id } = req.params;
             const updateData = {
                 ...req.body,
-                recorder_id: req.user.id,
+                recorder_id: req.user?.id || 1001, // 默认使用第一个教师ID，或从认证获取
                 updated_at: new Date()
             };
 
