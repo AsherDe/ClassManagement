@@ -1,20 +1,157 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
-    provider = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 datasource db {
-    provider = "postgresql"
-    url      = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
-model Post {
-    id        Int      @id @default(autoincrement())
-    name      String
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+model users {
+  user_id    Int       @id @default(autoincrement())
+  username   String    @unique @db.VarChar(50)
+  password   String    @default("shzu123456") @db.VarChar(100)
+  user_type  String    @db.VarChar(20)
+  real_name  String    @db.VarChar(50)
+  email      String?   @db.VarChar(100)
+  phone      String?   @db.VarChar(20)
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  updated_at DateTime? @default(now()) @db.Timestamp(6)
 
-    @@index([name])
+  students students?
+  teachers teachers?
+
+  @@index([user_type])
+  @@index([username])
+}
+
+model majors {
+  major_id   Int       @id @default(autoincrement())
+  major_code String    @unique @db.VarChar(10)
+  major_name String    @db.VarChar(100)
+  department String?   @default("计算机科学与技术学院") @db.VarChar(100)
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+
+  students students[]
+}
+
+model students {
+  student_id      String    @id @db.VarChar(20)
+  user_id         Int       @unique
+  major_id        Int?
+  grade           Int
+  class_number    Int
+  gpa             Decimal?  @default(0.00) @db.Decimal(3, 2)
+  total_credits   Int?      @default(0)
+  status          String?   @default("active") @db.VarChar(20)
+  enrollment_date DateTime? @default(now()) @db.Date
+
+  user        users         @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  major       majors?       @relation(fields: [major_id], references: [major_id])
+  enrollments enrollments[]
+  grades      grades[]
+
+  @@index([major_id])
+  @@index([grade, class_number])
+}
+
+model teachers {
+  teacher_id String    @id @db.VarChar(20)
+  user_id    Int       @unique
+  title      String?   @db.VarChar(50)
+  department String?   @default("计算机科学与技术学院") @db.VarChar(100)
+  hire_date  DateTime? @default(now()) @db.Date
+
+  user     users      @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  classes  classes[]
+  teaching teaching[]
+  grades   grades[]   @relation("GradeRecorder")
+
+  @@index([department])
+}
+
+model courses {
+  course_id   Int       @id @default(autoincrement())
+  course_code String    @unique @db.VarChar(20)
+  course_name String    @db.VarChar(100)
+  credits     Int
+  course_type String?   @default("required") @db.VarChar(20)
+  description String?
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
+
+  classes classes[]
+
+  @@index([course_code])
+  @@index([course_type])
+}
+
+model classes {
+  class_id         Int       @id @default(autoincrement())
+  course_id        Int
+  teacher_id       String?   @db.VarChar(20)
+  class_name       String    @db.VarChar(100)
+  semester         String    @db.VarChar(20)
+  max_students     Int?      @default(50)
+  current_students Int?      @default(0)
+  class_time       String?   @db.VarChar(100)
+  classroom        String?   @db.VarChar(50)
+  status           String?   @default("active") @db.VarChar(20)
+
+  course      courses       @relation(fields: [course_id], references: [course_id], onDelete: Cascade)
+  teacher     teachers?     @relation(fields: [teacher_id], references: [teacher_id])
+  teaching    teaching[]
+  enrollments enrollments[]
+  grades      grades[]
+
+  @@index([course_id])
+  @@index([teacher_id])
+}
+
+model teaching {
+  teaching_id Int       @id @default(autoincrement())
+  teacher_id  String    @db.VarChar(20)
+  class_id    Int
+  assigned_at DateTime? @default(now()) @db.Timestamp(6)
+
+  teacher teachers @relation(fields: [teacher_id], references: [teacher_id])
+  class   classes  @relation(fields: [class_id], references: [class_id])
+
+  @@unique([teacher_id, class_id])
+}
+
+model enrollments {
+  enrollment_id Int       @id @default(autoincrement())
+  student_id    String    @db.VarChar(20)
+  class_id      Int
+  enrolled_at   DateTime? @default(now()) @db.Timestamp(6)
+  status        String?   @default("enrolled") @db.VarChar(20)
+
+  student students @relation(fields: [student_id], references: [student_id])
+  class   classes  @relation(fields: [class_id], references: [class_id])
+
+  @@unique([student_id, class_id])
+  @@index([student_id])
+  @@index([class_id])
+}
+
+model grades {
+  grade_id      Int       @id @default(autoincrement())
+  student_id    String    @db.VarChar(20)
+  class_id      Int
+  regular_score Decimal?  @db.Decimal(5, 2)
+  midterm_score Decimal?  @db.Decimal(5, 2)
+  final_score   Decimal?  @db.Decimal(5, 2)
+  total_score   Decimal?  @db.Decimal(5, 2)
+  letter_grade  String?   @db.VarChar(2)
+  gpa_points    Decimal?  @db.Decimal(3, 2)
+  recorded_at   DateTime? @default(now()) @db.Timestamp(6)
+  recorded_by   String?   @db.VarChar(20)
+
+  student students  @relation(fields: [student_id], references: [student_id])
+  class   classes   @relation(fields: [class_id], references: [class_id])
+  teacher teachers? @relation("GradeRecorder", fields: [recorded_by], references: [teacher_id])
+
+  @@unique([student_id, class_id])
+  @@index([student_id])
+  @@index([class_id])
 }

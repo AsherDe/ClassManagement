@@ -1,53 +1,120 @@
-import Link from "next/link";
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { api } from "~/trpc/react";
 
-import { LatestPost } from "~/app/_components/post";
-import { api, HydrateClient } from "~/trpc/server";
+export default function Home() {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const router = useRouter();
+  
+  const loginMutation = api.auth.login.useMutation({
+    onSuccess: (user) => {
+      localStorage.setItem("user", JSON.stringify(user));
+      if (user.role === "admin") {
+        router.push("/admin");
+      } else if (user.role === "teacher") {
+        router.push("/teacher");
+      } else if (user.role === "student") {
+        router.push("/student");
+      }
+    },
+    onError: (error) => {
+      alert(error.message);
+    }
+  });
 
-export default async function Home() {
-  const hello = await api.post.hello({ text: "from tRPC" });
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    loginMutation.mutate({ username, password });
+  };
 
-  void api.post.getLatest.prefetch();
+  const handleQuickLogin = (role: "admin" | "teacher" | "student") => {
+    const credentials = {
+      admin: { username: "admin", password: "admin123" },
+      teacher: { username: "t001", password: "teacher123" }, 
+      student: { username: "20231001111", password: "student123" }
+    };
+    
+    const { username: user, password: pass } = credentials[role];
+    setUsername(user);
+    setPassword(pass);
+    loginMutation.mutate({ username: user, password: pass });
+  };
 
   return (
-    <HydrateClient>
-      <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#2e026d] to-[#15162c] text-white">
-        <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16">
-          <h1 className="text-5xl font-extrabold tracking-tight sm:text-[5rem]">
-            Create <span className="text-[hsl(280,100%,70%)]">T3</span> App
-          </h1>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-8">
-            <Link
-              className="flex max-w-xs flex-col gap-4 rounded-xl bg-white/10 p-4 hover:bg-white/20"
-              href="https://create.t3.gg/en/usage/first-steps"
-              target="_blank"
-            >
-              <h3 className="text-2xl font-bold">First Steps →</h3>
-              <div className="text-lg">
-                Just the basics - Everything you need to know to set up your
-                database and authentication.
-              </div>
-            </Link>
-            <Link
-              className="flex max-w-xs flex-col gap-4 rounded-xl bg-white/10 p-4 hover:bg-white/20"
-              href="https://create.t3.gg/en/introduction"
-              target="_blank"
-            >
-              <h3 className="text-2xl font-bold">Documentation →</h3>
-              <div className="text-lg">
-                Learn more about Create T3 App, the libraries it uses, and how
-                to deploy it.
-              </div>
-            </Link>
+    <main className="flex min-h-screen items-center justify-center bg-gray-100">
+      <div className="w-full max-w-md p-8 bg-white rounded-lg shadow-md">
+        <h1 className="text-2xl font-bold text-center mb-6">班级管理系统</h1>
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">用户名</label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+              required
+            />
           </div>
-          <div className="flex flex-col items-center gap-2">
-            <p className="text-2xl text-white">
-              {hello ? hello.greeting : "Loading tRPC query..."}
-            </p>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">密码</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+              required
+            />
           </div>
-
-          <LatestPost />
+          <button
+            type="submit"
+            disabled={loginMutation.isPending}
+            className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+          >
+            {loginMutation.isPending ? "登录中..." : "登录"}
+          </button>
+        </form>
+        
+        <div className="mt-6">
+          <div className="flex items-center justify-center mb-4">
+            <div className="border-t border-gray-300 flex-grow"></div>
+            <span className="px-3 text-sm text-gray-500">快捷登录</span>
+            <div className="border-t border-gray-300 flex-grow"></div>
+          </div>
+          
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              onClick={() => handleQuickLogin("admin")}
+              disabled={loginMutation.isPending}
+              className="py-2 px-3 bg-red-500 text-white rounded-md hover:bg-red-600 disabled:opacity-50 text-sm"
+            >
+              管理员
+            </button>
+            <button
+              onClick={() => handleQuickLogin("teacher")}
+              disabled={loginMutation.isPending}
+              className="py-2 px-3 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:opacity-50 text-sm"
+            >
+              教师
+            </button>
+            <button
+              onClick={() => handleQuickLogin("student")}
+              disabled={loginMutation.isPending}
+              className="py-2 px-3 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 text-sm"
+            >
+              学生
+            </button>
+          </div>
         </div>
-      </main>
-    </HydrateClient>
+
+        <div className="mt-4 text-xs text-gray-500 text-center">
+          <p>测试账号信息：</p>
+          <p>管理员: admin / admin123</p>
+          <p>教师: t001 / teacher123</p> 
+          <p>学生: 20231001111 / student123</p>
+        </div>
+      </div>
+    </main>
   );
 }

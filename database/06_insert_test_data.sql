@@ -29,34 +29,34 @@ ALTER SEQUENCE permission_id_seq RESTART WITH 1;
 
 -- 插入基础用户数据
 INSERT INTO users (username, password_hash, email, phone, user_type, status, profile_data) VALUES
--- 管理员用户
-('admin', '$2b$10$8K1p/a0dM8V2KW8m.sRbGuOcxJR1M7VxYVZKcJ5dqLNFM2oPvWQAa', 'admin@shzu.edu.cn', '13999999999', 'admin', 'active', '{"role": "系统管理员", "department": "信息中心"}'),
--- 教师用户
-('teacher001', '$2b$10$8K1p/a0dM8V2KW8m.sRbGuOcxJR1M7VxYVZKcJ5dqLNFM2oPvWQAa', 'zhang.wei@shzu.edu.cn', '13888888888', 'teacher', 'active', '{"title": "教授"}'),
-('teacher002', '$2b$10$8K1p/a0dM8V2KW8m.sRbGuOcxJR1M7VxYVZKcJ5dqLNFM2oPvWQAa', 'li.ming@shzu.edu.cn', '13777777777', 'teacher', 'active', '{"title": "副教授"}'),
-('teacher003', '$2b$10$8K1p/a0dM8V2KW8m.sRbGuOcxJR1M7VxYVZKcJ5dqLNFM2oPvWQAa', 'wang.fang@shzu.edu.cn', '13666666666', 'teacher', 'active', '{"title": "讲师"}'),
-('teacher004', '$2b$10$8K1p/a0dM8V2KW8m.sRbGuOcxJR1M7VxYVZKcJ5dqLNFM2oPvWQAa', 'liu.jun@shzu.edu.cn', '13555555555', 'teacher', 'active', '{"title": "助教"}'),
--- 学生用户 (50个学生)
-('20210101', '$2b$10$8K1p/a0dM8V2KW8m.sRbGuOcxJR1M7VxYVZKcJ5dqLNFM2oPvWQAa', 'student001@stu.shzu.edu.cn', '13111111111', 'student', 'active', '{"grade": 2021}'),
-('20210102', '$2b$10$8K1p/a0dM8V2KW8m.sRbGuOcxJR1M7VxYVZKcJ5dqLNFM2oPvWQAa', 'student002@stu.shzu.edu.cn', '13111111112', 'student', 'active', '{"grade": 2021}'),
-('20210103', '$2b$10$8K1p/a0dM8V2KW8m.sRbGuOcxJR1M7VxYVZKcJ5dqLNFM2oPvWQAa', 'student003@stu.shzu.edu.cn', '13111111113', 'student', 'active', '{"grade": 2021}'),
-('20210104', '$2b$10$8K1p/a0dM8V2KW8m.sRbGuOcxJR1M7VxYVZKcJ5dqLNFM2oPvWQAa', 'student004@stu.shzu.edu.cn', '13111111114', 'student', 'active', '{"grade": 2021}'),
-('20210105', '$2b$10$8K1p/a0dM8V2KW8m.sRbGuOcxJR1M7VxYVZKcJ5dqLNFM2oPvWQAa', 'student005@stu.shzu.edu.cn', '13111111115', 'student', 'active', '{"grade": 2021}'),
-('20210106', '$2b$10$8K1p/a0dM8V2KW8m.sRbGuOcxJR1M7VxYVZKcJ5dqLNFM2oPvWQAa', 'student006@stu.shzu.edu.cn', '13111111116', 'student', 'active', '{"grade": 2021}'),
-('20210107', '$2b$10$8K1p/a0dM8V2KW8m.sRbGuOcxJR1M7VxYVZKcJ5dqLNFM2oPvWQAa', 'student007@stu.shzu.edu.cn', '13111111117', 'student', 'active', '{"grade": 2021}'),
-('20210108', '$2b$10$8K1p/a0dM8V2KW8m.sRbGuOcxJR1M7VxYVZKcJ5dqLNFM2oPvWQAa', 'student008@stu.shzu.edu.cn', '13111111118', 'student', 'active', '{"grade": 2021}'),
-('20210109', '$2b$10$8K1p/a0dM8V2KW8m.sRbGuOcxJR1M7VxYVZKcJ5dqLNFM2oPvWQAa', 'student009@stu.shzu.edu.cn', '13111111119', 'student', 'active', '{"grade": 2021}'),
-('20210110', '$2b$10$8K1p/a0dM8V2KW8m.sRbGuOcxJR1M7VxYVZKcJ5dqLNFM2oPvWQAa', 'student010@stu.shzu.edu.cn', '13111111120', 'student', 'active', '{"grade": 2021}'),
-('20210201', '$2b$10$8K1p/a0dM8V2KW8m.sRbGuOcxJR1M7VxYVZKcJ5dqLNFM2oPvWQAa', 'student011@stu.shzu.edu.cn', '13111111121', 'student', 'active', '{"grade": 2021}'),
-('20210202', '$2b$10$8K1p/a0dM8V2KW8m.sRbGuOcxJR1M7VxYVZKcJ5dqLNFM2oPvWQAa', 'student012@stu.shzu.edu.cn', '13111111122', 'student', 'active', '{"grade": 2021}'),
-('20210203', '$2b$10$8K1p/a0dM8V2KW8m.sRbGuOcxJR1M7VxYVZKcJ5dqLNFM2oPvWQAa', 'student013@stu.shzu.edu.cn', '13111111123', 'student', 'active', '{"grade": 2021}'),
-('20210204', '$2b$10$8K1p/a0dM8V2KW8m.sRbGuOcxJR1M7VxYVZKcJ5dqLNFM2oPvWQAa', 'student014@stu.shzu.edu.cn', '13111111124', 'student', 'active', '{"grade": 2021}'),
-('20210205', '$2b$10$8K1p/a0dM8V2KW8m.sRbGuOcxJR1M7VxYVZKcJ5dqLNFM2oPvWQAa', 'student015@stu.shzu.edu.cn', '13111111125', 'student', 'active', '{"grade": 2021}'),
-('20220101', '$2b$10$8K1p/a0dM8V2KW8m.sRbGuOcxJR1M7VxYVZKcJ5dqLNFM2oPvWQAa', 'student016@stu.shzu.edu.cn', '13111111126', 'student', 'active', '{"grade": 2022}'),
-('20220102', '$2b$10$8K1p/a0dM8V2KW8m.sRbGuOcxJR1M7VxYVZKcJ5dqLNFM2oPvWQAa', 'student017@stu.shzu.edu.cn', '13111111127', 'student', 'active', '{"grade": 2022}'),
-('20220103', '$2b$10$8K1p/a0dM8V2KW8m.sRbGuOcxJR1M7VxYVZKcJ5dqLNFM2oPvWQAa', 'student018@stu.shzu.edu.cn', '13111111128', 'student', 'active', '{"grade": 2022}'),
-('20220104', '$2b$10$8K1p/a0dM8V2KW8m.sRbGuOcxJR1M7VxYVZKcJ5dqLNFM2oPvWQAa', 'student019@stu.shzu.edu.cn', '13111111129', 'student', 'active', '{"grade": 2022}'),
-('20220105', '$2b$10$8K1p/a0dM8V2KW8m.sRbGuOcxJR1M7VxYVZKcJ5dqLNFM2oPvWQAa', 'student020@stu.shzu.edu.cn', '13111111130', 'student', 'active', '{"grade": 2022}');
+-- 管理员用户 (密码: 123456)
+('admin', '$2b$10$zKUW7PnShaoqCtGAQrG4MuGQNSVnUiTt6tM5aB.UX4CEJNYYFzAaG', 'admin@shzu.edu.cn', '13999999999', 'admin', 'active', '{"role": "系统管理员", "department": "信息中心"}'),
+-- 教师用户 (密码: 123456)
+('teacher001', '$2b$10$zKUW7PnShaoqCtGAQrG4MuGQNSVnUiTt6tM5aB.UX4CEJNYYFzAaG', 'zhang.wei@shzu.edu.cn', '13888888888', 'teacher', 'active', '{"title": "教授"}'),
+('teacher002', '$2b$10$zKUW7PnShaoqCtGAQrG4MuGQNSVnUiTt6tM5aB.UX4CEJNYYFzAaG', 'li.ming@shzu.edu.cn', '13777777777', 'teacher', 'active', '{"title": "副教授"}'),
+('teacher003', '$2b$10$zKUW7PnShaoqCtGAQrG4MuGQNSVnUiTt6tM5aB.UX4CEJNYYFzAaG', 'wang.fang@shzu.edu.cn', '13666666666', 'teacher', 'active', '{"title": "讲师"}'),
+('teacher004', '$2b$10$zKUW7PnShaoqCtGAQrG4MuGQNSVnUiTt6tM5aB.UX4CEJNYYFzAaG', 'liu.jun@shzu.edu.cn', '13555555555', 'teacher', 'active', '{"title": "助教"}'),
+-- 学生用户 (密码: 123456)
+('20210101', '$2b$10$zKUW7PnShaoqCtGAQrG4MuGQNSVnUiTt6tM5aB.UX4CEJNYYFzAaG', 'student001@stu.shzu.edu.cn', '13111111111', 'student', 'active', '{"grade": 2021}'),
+('20210102', '$2b$10$zKUW7PnShaoqCtGAQrG4MuGQNSVnUiTt6tM5aB.UX4CEJNYYFzAaG', 'student002@stu.shzu.edu.cn', '13111111112', 'student', 'active', '{"grade": 2021}'),
+('20210103', '$2b$10$zKUW7PnShaoqCtGAQrG4MuGQNSVnUiTt6tM5aB.UX4CEJNYYFzAaG', 'student003@stu.shzu.edu.cn', '13111111113', 'student', 'active', '{"grade": 2021}'),
+('20210104', '$2b$10$zKUW7PnShaoqCtGAQrG4MuGQNSVnUiTt6tM5aB.UX4CEJNYYFzAaG', 'student004@stu.shzu.edu.cn', '13111111114', 'student', 'active', '{"grade": 2021}'),
+('20210105', '$2b$10$zKUW7PnShaoqCtGAQrG4MuGQNSVnUiTt6tM5aB.UX4CEJNYYFzAaG', 'student005@stu.shzu.edu.cn', '13111111115', 'student', 'active', '{"grade": 2021}'),
+('20210106', '$2b$10$zKUW7PnShaoqCtGAQrG4MuGQNSVnUiTt6tM5aB.UX4CEJNYYFzAaG', 'student006@stu.shzu.edu.cn', '13111111116', 'student', 'active', '{"grade": 2021}'),
+('20210107', '$2b$10$zKUW7PnShaoqCtGAQrG4MuGQNSVnUiTt6tM5aB.UX4CEJNYYFzAaG', 'student007@stu.shzu.edu.cn', '13111111117', 'student', 'active', '{"grade": 2021}'),
+('20210108', '$2b$10$zKUW7PnShaoqCtGAQrG4MuGQNSVnUiTt6tM5aB.UX4CEJNYYFzAaG', 'student008@stu.shzu.edu.cn', '13111111118', 'student', 'active', '{"grade": 2021}'),
+('20210109', '$2b$10$zKUW7PnShaoqCtGAQrG4MuGQNSVnUiTt6tM5aB.UX4CEJNYYFzAaG', 'student009@stu.shzu.edu.cn', '13111111119', 'student', 'active', '{"grade": 2021}'),
+('20210110', '$2b$10$zKUW7PnShaoqCtGAQrG4MuGQNSVnUiTt6tM5aB.UX4CEJNYYFzAaG', 'student010@stu.shzu.edu.cn', '13111111120', 'student', 'active', '{"grade": 2021}'),
+('20210201', '$2b$10$zKUW7PnShaoqCtGAQrG4MuGQNSVnUiTt6tM5aB.UX4CEJNYYFzAaG', 'student011@stu.shzu.edu.cn', '13111111121', 'student', 'active', '{"grade": 2021}'),
+('20210202', '$2b$10$zKUW7PnShaoqCtGAQrG4MuGQNSVnUiTt6tM5aB.UX4CEJNYYFzAaG', 'student012@stu.shzu.edu.cn', '13111111122', 'student', 'active', '{"grade": 2021}'),
+('20210203', '$2b$10$zKUW7PnShaoqCtGAQrG4MuGQNSVnUiTt6tM5aB.UX4CEJNYYFzAaG', 'student013@stu.shzu.edu.cn', '13111111123', 'student', 'active', '{"grade": 2021}'),
+('20210204', '$2b$10$zKUW7PnShaoqCtGAQrG4MuGQNSVnUiTt6tM5aB.UX4CEJNYYFzAaG', 'student014@stu.shzu.edu.cn', '13111111124', 'student', 'active', '{"grade": 2021}'),
+('20210205', '$2b$10$zKUW7PnShaoqCtGAQrG4MuGQNSVnUiTt6tM5aB.UX4CEJNYYFzAaG', 'student015@stu.shzu.edu.cn', '13111111125', 'student', 'active', '{"grade": 2021}'),
+('20220101', '$2b$10$zKUW7PnShaoqCtGAQrG4MuGQNSVnUiTt6tM5aB.UX4CEJNYYFzAaG', 'student016@stu.shzu.edu.cn', '13111111126', 'student', 'active', '{"grade": 2022}'),
+('20220102', '$2b$10$zKUW7PnShaoqCtGAQrG4MuGQNSVnUiTt6tM5aB.UX4CEJNYYFzAaG', 'student017@stu.shzu.edu.cn', '13111111127', 'student', 'active', '{"grade": 2022}'),
+('20220103', '$2b$10$zKUW7PnShaoqCtGAQrG4MuGQNSVnUiTt6tM5aB.UX4CEJNYYFzAaG', 'student018@stu.shzu.edu.cn', '13111111128', 'student', 'active', '{"grade": 2022}'),
+('20220104', '$2b$10$zKUW7PnShaoqCtGAQrG4MuGQNSVnUiTt6tM5aB.UX4CEJNYYFzAaG', 'student019@stu.shzu.edu.cn', '13111111129', 'student', 'active', '{"grade": 2022}'),
+('20220105', '$2b$10$zKUW7PnShaoqCtGAQrG4MuGQNSVnUiTt6tM5aB.UX4CEJNYYFzAaG', 'student020@stu.shzu.edu.cn', '13111111130', 'student', 'active', '{"grade": 2022}');
 
 -- 插入教师信息
 INSERT INTO teachers (id, teacher_code, name, gender, birth_date, id_card, department, title, education, phone, email, office_location, hire_date) VALUES

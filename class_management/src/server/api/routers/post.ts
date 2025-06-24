@@ -1,31 +1,28 @@
 import { z } from "zod";
-
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 
+// Placeholder post router - not used in current schema
 export const postRouter = createTRPCRouter({
-  hello: publicProcedure
-    .input(z.object({ text: z.string() }))
-    .query(({ input }) => {
-      return {
-        greeting: `Hello ${input.text}`,
-      };
+  getAll: publicProcedure
+    .query(async () => {
+      return [];
     }),
 
   create: publicProcedure
-    .input(z.object({ name: z.string().min(1) }))
-    .mutation(async ({ ctx, input }) => {
-      return ctx.db.post.create({
-        data: {
-          name: input.name,
-        },
-      });
+    .input(z.object({
+      title: z.string(),
+      content: z.string(),
+      author_id: z.number(),
+      post_type: z.string().optional(),
+      class_id: z.number().optional(),
+    }))
+    .mutation(async () => {
+      return { id: 1, message: "Not implemented" };
     }),
 
-  getLatest: publicProcedure.query(async ({ ctx }) => {
-    const post = await ctx.db.post.findFirst({
-      orderBy: { createdAt: "desc" },
-    });
-
-    return post ?? null;
-  }),
+  delete: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async () => {
+      return { message: "Not implemented" };
+    }),
 });
