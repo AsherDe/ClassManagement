@@ -172,8 +172,10 @@ export const teacherRouter = createTRPCRouter({
     }))
     .query(async ({ ctx, input }) => {
       let whereClause = "";
+      let sqlWhereClause = "";
       if (input?.teacherId) {
         whereClause = `WHERE cl.teacher_id = '${input.teacherId}'`;
+        sqlWhereClause = `WHERE cl.teacher_id = '${input.teacherId}'`;
       }
 
       const analysis = await ctx.db.$queryRaw`
@@ -197,6 +199,56 @@ export const teacherRouter = createTRPCRouter({
         ORDER BY avg_score DESC
       `;
 
-      return analysis;
+      return {
+        data: analysis,
+        sql: `SELECT 
+    c.course_name,
+    COUNT(g.grade_id) as student_count,
+    ROUND(AVG(g.total_score), 2) as avg_score,
+    ROUND(MIN(g.total_score), 2) as min_score,
+    ROUND(MAX(g.total_score), 2) as max_score,
+    COUNT(CASE WHEN g.letter_grade IN ('A+', 'A') THEN 1 END) as excellent_count,
+    COUNT(CASE WHEN g.letter_grade = 'F' THEN 1 END) as fail_count,
+    ROUND(
+        COUNT(CASE WHEN g.letter_grade IN ('A+', 'A') THEN 1 END) * 100.0 / COUNT(g.grade_id), 
+        1
+    ) as excellent_rate
+FROM courses c
+JOIN classes cl ON c.course_id = cl.course_id
+JOIN grades g ON cl.class_id = g.class_id${sqlWhereClause ? '\n' + sqlWhereClause : ''}
+GROUP BY c.course_id, c.course_name
+ORDER BY avg_score DESC;`
+      };
+    }),
+
+  // 各专业学生平均GPA排名（复杂查询）
+  getMajorGpaRanking: publicProcedure
+    .query(async ({ ctx }) => {
+      const ranking = await ctx.db.$queryRaw`
+        SELECT 
+          m.major_name,
+          COUNT(s.student_id) as student_count,
+          ROUND(AVG(s.gpa), 2) as avg_gpa,
+          ROUND(AVG(s.total_credits), 1) as avg_credits,
+          ROW_NUMBER() OVER (ORDER BY AVG(s.gpa) DESC) as ranking
+        FROM majors m
+        LEFT JOIN students s ON m.major_id = s.major_id
+        GROUP BY m.major_id, m.major_name
+        ORDER BY avg_gpa DESC
+      `;
+
+      return {
+        data: ranking,
+        sql: `SELECT 
+    m.major_name,
+    COUNT(s.student_id) as student_count,
+    ROUND(AVG(s.gpa), 2) as avg_gpa,
+    ROUND(AVG(s.total_credits), 1) as avg_credits,
+    ROW_NUMBER() OVER (ORDER BY AVG(s.gpa) DESC) as ranking
+FROM majors m
+LEFT JOIN students s ON m.major_id = s.major_id
+GROUP BY m.major_id, m.major_name
+ORDER BY avg_gpa DESC;`
+      };
     }),
 });

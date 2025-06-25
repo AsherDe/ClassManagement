@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
 import Link from "next/link";
+import SqlDisplay from "~/components/SqlDisplay";
 
 export default function TeacherDashboard() {
   const router = useRouter();
@@ -27,6 +28,16 @@ export default function TeacherDashboard() {
   const teacherId = "T001"; // Zhang Wei teacher
   
   const { data: teacherCourses } = api.teacher.getTeacherCourses.useQuery(
+    { teacherId },
+    { enabled: !!user }
+  );
+
+  const { data: majorGpaRanking } = api.teacher.getMajorGpaRanking.useQuery(
+    undefined,
+    { enabled: !!user }
+  );
+
+  const { data: courseGradeAnalysis } = api.teacher.getCourseGradeAnalysis.useQuery(
     { teacherId },
     { enabled: !!user }
   );
@@ -89,6 +100,16 @@ export default function TeacherDashboard() {
               }`}
             >
               班级活动
+            </button>
+            <button
+              onClick={() => setActiveTab("analytics")}
+              className={`pb-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === "analytics"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              数据分析
             </button>
           </nav>
         </div>
@@ -469,6 +490,76 @@ export default function TeacherDashboard() {
                     <h4 className="font-medium text-gray-900">状态跟踪</h4>
                     <p className="text-sm text-gray-600">活动从计划到完成的全流程管理</p>
                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "analytics" && (
+          <div className="space-y-6">
+            {/* Page Header */}
+            <div className="bg-white shadow rounded-lg p-6">
+              <h2 className="text-lg font-medium text-gray-900 mb-2">数据分析中心</h2>
+              <p className="text-gray-600">
+                查看各种复杂查询结果，包括专业GPA排名、课程成绩分析等。所有查询均显示对应的SQL代码。
+              </p>
+            </div>
+
+            {/* Major GPA Ranking */}
+            {majorGpaRanking && (
+              <SqlDisplay
+                title="各专业学生平均GPA排名"
+                sql={majorGpaRanking.sql}
+                data={majorGpaRanking.data as any[]}
+                columns={[
+                  { key: 'ranking', label: '排名', type: 'ranking' },
+                  { key: 'major_name', label: '专业名称', type: 'text' },
+                  { key: 'student_count', label: '学生数量', type: 'number' },
+                  { key: 'avg_gpa', label: '平均GPA', type: 'number' },
+                  { key: 'avg_credits', label: '平均学分', type: 'number' },
+                ]}
+              />
+            )}
+
+            {/* Course Grade Analysis */}
+            {courseGradeAnalysis && (
+              <SqlDisplay
+                title="我的课程成绩分析"
+                sql={courseGradeAnalysis.sql}
+                data={courseGradeAnalysis.data as any[]}
+                columns={[
+                  { key: 'course_name', label: '课程名称', type: 'text' },
+                  { key: 'student_count', label: '学生数', type: 'number' },
+                  { key: 'avg_score', label: '平均分', type: 'number' },
+                  { key: 'min_score', label: '最低分', type: 'number' },
+                  { key: 'max_score', label: '最高分', type: 'number' },
+                  { key: 'excellent_count', label: '优秀人数', type: 'number' },
+                  { key: 'fail_count', label: '不及格人数', type: 'number' },
+                  { key: 'excellent_rate', label: '优秀率(%)', type: 'number' },
+                ]}
+              />
+            )}
+
+            {/* Tips */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+              <h3 className="text-lg font-medium text-blue-900 mb-3">💡 数据分析说明</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-800">
+                <div>
+                  <h4 className="font-medium mb-2">专业GPA排名：</h4>
+                  <ul className="space-y-1">
+                    <li>• 显示所有专业学生的平均GPA排名</li>
+                    <li>• 包含学生数量和平均学分信息</li>
+                    <li>• 金牌🥇银牌🥈铜牌🥉标识前三名</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="font-medium mb-2">课程成绩分析：</h4>
+                  <ul className="space-y-1">
+                    <li>• 仅显示您教授的课程数据</li>
+                    <li>• 包含分数分布和优秀率统计</li>
+                    <li>• 点击"显示SQL"查看查询代码</li>
+                  </ul>
                 </div>
               </div>
             </div>

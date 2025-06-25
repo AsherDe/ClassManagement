@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
+import SqlDisplay from "~/components/SqlDisplay";
 
 type User = {
   id: number;
@@ -85,6 +86,7 @@ export default function AdminDashboard() {
   const { data: students } = api.teacher.getClassStudents.useQuery({ classId: 1 }); // Sample data
   const { data: courses } = api.teacher.getTeacherCourses.useQuery({ teacherId: "T001" }); // Sample data
   const { data: activities } = api.activity.getAll.useQuery();
+  const { data: teacherWorkloadStats } = api.admin.getTeacherWorkloadStats.useQuery();
 
   // Mutations
   const resetPasswordMutation = api.admin.resetUserPassword.useMutation({
@@ -135,6 +137,7 @@ export default function AdminDashboard() {
     { id: "students", name: "学生管理" },
     { id: "courses", name: "课程管理" },
     { id: "activities", name: "活动管理" },
+    { id: "analytics", name: "数据分析" },
   ];
 
   return (
@@ -385,6 +388,60 @@ export default function AdminDashboard() {
                   暂无活动数据
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* 数据分析页面 */}
+        {activeTab === "analytics" && (
+          <div className="space-y-6">
+            {/* Page Header */}
+            <div className="bg-white shadow rounded-lg p-6">
+              <h2 className="text-lg font-medium text-gray-900 mb-2">数据分析中心</h2>
+              <p className="text-gray-600">
+                查看系统复杂查询结果，包括教师工作量统计等。所有查询均显示对应的SQL代码。
+              </p>
+            </div>
+
+            {/* Teacher Workload Stats */}
+            {teacherWorkloadStats && (
+              <SqlDisplay
+                title="教师工作量统计"
+                sql={teacherWorkloadStats.sql}
+                data={teacherWorkloadStats.data as any[]}
+                columns={[
+                  { key: 'teacher_id', label: '教师ID', type: 'text' },
+                  { key: 'teacher_name', label: '教师姓名', type: 'text' },
+                  { key: 'title', label: '职称', type: 'text' },
+                  { key: 'class_count', label: '授课班级数', type: 'number' },
+                  { key: 'total_students', label: '总学生数', type: 'number' },
+                  { key: 'total_credits', label: '总学分', type: 'number' },
+                  { key: 'avg_class_size', label: '平均班级人数', type: 'number' },
+                ]}
+              />
+            )}
+
+            {/* Tips */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+              <h3 className="text-lg font-medium text-blue-900 mb-3">💡 数据分析说明</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-800">
+                <div>
+                  <h4 className="font-medium mb-2">教师工作量统计：</h4>
+                  <ul className="space-y-1">
+                    <li>• 显示所有教师的工作负荷情况</li>
+                    <li>• 包含授课班级数、学生总数等指标</li>
+                    <li>• 按学生总数降序排列</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="font-medium mb-2">使用说明：</h4>
+                  <ul className="space-y-1">
+                    <li>• 点击"显示SQL"查看查询代码</li>
+                    <li>• 数据实时从数据库获取</li>
+                    <li>• 支持复杂的多表连接查询</li>
+                  </ul>
+                </div>
+              </div>
             </div>
           </div>
         )}

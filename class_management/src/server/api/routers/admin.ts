@@ -120,4 +120,43 @@ export const adminRouter = createTRPCRouter({
         }, {} as Record<string, number>),
       };
     }),
+
+  // 教师工作量统计（复杂查询）
+  getTeacherWorkloadStats: publicProcedure
+    .query(async ({ ctx }) => {
+      const workload = await ctx.db.$queryRaw`
+        SELECT 
+          t.teacher_id,
+          u.real_name as teacher_name,
+          t.title,
+          COUNT(DISTINCT cl.class_id) as class_count,
+          SUM(cl.current_students) as total_students,
+          SUM(c.credits) as total_credits,
+          ROUND(AVG(cl.current_students), 1) as avg_class_size
+        FROM teachers t
+        JOIN users u ON t.user_id = u.user_id
+        LEFT JOIN classes cl ON t.teacher_id = cl.teacher_id
+        LEFT JOIN courses c ON cl.course_id = c.course_id
+        GROUP BY t.teacher_id, u.real_name, t.title
+        ORDER BY total_students DESC
+      `;
+
+      return {
+        data: workload,
+        sql: `SELECT 
+    t.teacher_id,
+    u.real_name as teacher_name,
+    t.title,
+    COUNT(DISTINCT cl.class_id) as class_count,
+    SUM(cl.current_students) as total_students,
+    SUM(c.credits) as total_credits,
+    ROUND(AVG(cl.current_students), 1) as avg_class_size
+FROM teachers t
+JOIN users u ON t.user_id = u.user_id
+LEFT JOIN classes cl ON t.teacher_id = cl.teacher_id
+LEFT JOIN courses c ON cl.course_id = c.course_id
+GROUP BY t.teacher_id, u.real_name, t.title
+ORDER BY total_students DESC;`
+      };
+    }),
 });
