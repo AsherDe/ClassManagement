@@ -9,101 +9,117 @@ export const activityRouter = createTRPCRouter({
       status: z.string().optional(),
     }).optional())
     .query(async ({ ctx, input }) => {
-      let whereClause = "";
-      let conditions = [];
+      // Use Prisma relations for consistent data structure
+      const where: Record<string, unknown> = {};
       
       if (input?.classId) {
-        conditions.push(`ca.class_id = ${input.classId}`);
+        where.class_id = input.classId;
       }
       if (input?.status) {
-        conditions.push(`ca.status = '${input.status}'`);
-      }
-      
-      if (conditions.length > 0) {
-        whereClause = `WHERE ${conditions.join(' AND ')}`;
+        where.status = input.status;
       }
 
-      const activities = await ctx.db.$queryRaw`
-        SELECT 
-          ca.activity_id,
-          ca.class_id,
-          ca.activity_name,
-          ca.activity_type,
-          ca.description,
-          ca.location,
-          ca.start_time,
-          ca.end_time,
-          ca.organizer_id,
-          ca.budget_amount,
-          ca.actual_cost,
-          ca.participant_count,
-          ca.required_attendance,
-          ca.status,
-          ca.created_at,
-          s.student_id as organizer_student_id,
-          u.real_name as organizer_name
-        FROM class_activities ca
-        LEFT JOIN students s ON ca.organizer_id = s.student_id
-        LEFT JOIN users u ON s.user_id = u.user_id
-        ORDER BY ca.start_time DESC
-      `;
+      const activities = await ctx.db.class_activities.findMany({
+        where,
+        include: {
+          class: {
+            include: {
+              course: {
+                select: {
+                  course_id: true,
+                  course_code: true,
+                  course_name: true,
+                }
+              }
+            }
+          },
+          organizer: {
+            include: {
+              user: {
+                select: {
+                  real_name: true,
+                }
+              }
+            }
+          }
+        },
+        orderBy: { start_time: "desc" },
+      });
       
-      // Apply filters in JavaScript since dynamic SQL in queryRaw can be problematic
-      let filteredActivities = activities as any[];
-      
-      if (input?.classId) {
-        filteredActivities = filteredActivities.filter((activity: any) => 
-          activity.class_id === input.classId
-        );
-      }
-      
-      if (input?.status) {
-        filteredActivities = filteredActivities.filter((activity: any) => 
-          activity.status === input.status
-        );
-      }
-      
-      return filteredActivities;
+      return activities;
     }),
 
   // 根据ID获取活动详情
   getById: publicProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
-      const activity = await ctx.db.$queryRaw`
-        SELECT 
-          ca.*,
-          s.student_id as organizer_student_id,
-          u.real_name as organizer_name
-        FROM class_activities ca
-        LEFT JOIN students s ON ca.organizer_id = s.student_id
-        LEFT JOIN users u ON s.user_id = u.user_id
-        WHERE ca.activity_id = ${input.id}
-      `;
-      return (activity as any)[0] || null;
+      const activity = await ctx.db.class_activities.findUnique({
+        where: { activity_id: input.id },
+        include: {
+          class: {
+            include: {
+              course: {
+                select: {
+                  course_id: true,
+                  course_code: true,
+                  course_name: true,
+                }
+              }
+            }
+          },
+          organizer: {
+            include: {
+              user: {
+                select: {
+                  real_name: true,
+                }
+              }
+            }
+          },
+          participants: {
+            include: {
+              student: {
+                include: {
+                  user: {
+                    select: {
+                      real_name: true,
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
+      
+      return activity;
     }),
 
   // 获取活动参与者列表
   getParticipants: publicProcedure
     .input(z.object({ activityId: z.number() }))
     .query(async ({ ctx, input }) => {
-      const participants = await ctx.db.$queryRaw`
-        SELECT 
-          ap.participant_id,
-          ap.activity_id,
-          ap.student_id,
-          ap.registration_time,
-          ap.attendance_status,
-          ap.feedback,
-          u.real_name as student_name,
-          s.grade,
-          s.class_number
-        FROM activity_participants ap
-        JOIN students s ON ap.student_id = s.student_id
-        JOIN users u ON s.user_id = u.user_id
-        WHERE ap.activity_id = ${input.activityId}
-        ORDER BY ap.registration_time
-      `;
+      const participants = await ctx.db.activity_participants.findMany({
+        where: { activity_id: input.activityId },
+        include: {
+          student: {
+            include: {
+              user: {
+                select: {
+                  real_name: true,
+                }
+              },
+              major: {
+                select: {
+                  major_name: true,
+                }
+              }
+            }
+          }
+        },
+        orderBy: { registration_time: "asc" }
+      });
+      
       return participants;
     }),
 
@@ -235,6 +251,8 @@ export const activityRouter = createTRPCRouter({
           class_id: true,
           activity_name: true,
           status: true,
+          start_time: true,
+          end_time: true,
         }
       });
 
@@ -314,6 +332,8 @@ export const activityRouter = createTRPCRouter({
           class_id: true,
           activity_name: true,
           status: true,
+          start_time: true,
+          end_time: true,
         }
       });
 

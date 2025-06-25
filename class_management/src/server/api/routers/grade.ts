@@ -70,7 +70,7 @@ export const gradeRouter = createTRPCRouter({
       });
     }),
 
-  // 创建成绩记录（教师录入）- 支持upsert
+  // 创建成绩记录（教师录入）- 支持upsert，自动计算总分和GPA
   create: publicProcedure
     .input(z.object({
       studentId: z.string(),
@@ -79,10 +79,64 @@ export const gradeRouter = createTRPCRouter({
       midtermScore: z.number().min(0).max(100).optional(),
       finalScore: z.number().min(0).max(100).optional(),
       recordedBy: z.string(),
+      regularWeight: z.number().min(0).max(1).default(0.3),
+      midtermWeight: z.number().min(0).max(1).default(0.3),
+      finalWeight: z.number().min(0).max(1).default(0.4),
     }))
     .mutation(async ({ ctx, input }) => {
+      // 计算总分和等级
+      const regular = Number(input.regularScore) || 0;
+      const midterm = Number(input.midtermScore) || 0;
+      const final = Number(input.finalScore) || 0;
+      
+      const totalScore = regular * input.regularWeight + 
+                        midterm * input.midtermWeight + 
+                        final * input.finalWeight;
+      
+      // 计算等级和GPA点数
+      let letterGrade = 'F';
+      let gpaPoints = 0;
+      
+      if (totalScore >= 97) {
+        letterGrade = 'A+';
+        gpaPoints = 4.0;
+      } else if (totalScore >= 93) {
+        letterGrade = 'A';
+        gpaPoints = 4.0;
+      } else if (totalScore >= 90) {
+        letterGrade = 'A-';
+        gpaPoints = 3.7;
+      } else if (totalScore >= 87) {
+        letterGrade = 'B+';
+        gpaPoints = 3.3;
+      } else if (totalScore >= 83) {
+        letterGrade = 'B';
+        gpaPoints = 3.0;
+      } else if (totalScore >= 80) {
+        letterGrade = 'B-';
+        gpaPoints = 2.7;
+      } else if (totalScore >= 77) {
+        letterGrade = 'C+';
+        gpaPoints = 2.3;
+      } else if (totalScore >= 73) {
+        letterGrade = 'C';
+        gpaPoints = 2.0;
+      } else if (totalScore >= 70) {
+        letterGrade = 'C-';
+        gpaPoints = 1.7;
+      } else if (totalScore >= 67) {
+        letterGrade = 'D+';
+        gpaPoints = 1.3;
+      } else if (totalScore >= 65) {
+        letterGrade = 'D';
+        gpaPoints = 1.0;
+      } else if (totalScore >= 60) {
+        letterGrade = 'D-';
+        gpaPoints = 0.7;
+      }
+      
       // 使用 upsert 来处理已存在的记录
-      return await ctx.db.grades.upsert({
+      const grade = await ctx.db.grades.upsert({
         where: {
           student_id_class_id: {
             student_id: input.studentId,
@@ -93,6 +147,9 @@ export const gradeRouter = createTRPCRouter({
           regular_score: input.regularScore,
           midterm_score: input.midtermScore,
           final_score: input.finalScore,
+          total_score: Math.round(totalScore * 100) / 100,
+          letter_grade: letterGrade,
+          gpa_points: gpaPoints,
           recorded_by: input.recordedBy,
           recorded_at: new Date(),
         },
@@ -102,6 +159,9 @@ export const gradeRouter = createTRPCRouter({
           regular_score: input.regularScore,
           midterm_score: input.midtermScore,
           final_score: input.finalScore,
+          total_score: Math.round(totalScore * 100) / 100,
+          letter_grade: letterGrade,
+          gpa_points: gpaPoints,
           recorded_by: input.recordedBy,
         },
         include: {
@@ -123,9 +183,14 @@ export const gradeRouter = createTRPCRouter({
           }
         }
       });
+      
+      // 更新学生的总GPA
+      await updateStudentGPA(ctx.db, input.studentId);
+      
+      return grade;
     }),
 
-  // 更新成绩记录
+  // 更新成绩记录，自动重新计算总分和GPA
   update: publicProcedure
     .input(z.object({
       gradeId: z.number(),
@@ -133,14 +198,71 @@ export const gradeRouter = createTRPCRouter({
       midtermScore: z.number().min(0).max(100).optional(),
       finalScore: z.number().min(0).max(100).optional(),
       recordedBy: z.string(),
+      regularWeight: z.number().min(0).max(1).default(0.3),
+      midtermWeight: z.number().min(0).max(1).default(0.3),
+      finalWeight: z.number().min(0).max(1).default(0.4),
     }))
     .mutation(async ({ ctx, input }) => {
-      const { gradeId, recordedBy, ...scoreData } = input;
+      const { gradeId, recordedBy, regularWeight, midtermWeight, finalWeight, ...scoreData } = input;
       
-      return await ctx.db.grades.update({
+      // 计算总分和等级
+      const regular = Number(input.regularScore) || 0;
+      const midterm = Number(input.midtermScore) || 0;
+      const final = Number(input.finalScore) || 0;
+      
+      const totalScore = regular * regularWeight + 
+                        midterm * midtermWeight + 
+                        final * finalWeight;
+      
+      // 计算等级和GPA点数
+      let letterGrade = 'F';
+      let gpaPoints = 0;
+      
+      if (totalScore >= 97) {
+        letterGrade = 'A+';
+        gpaPoints = 4.0;
+      } else if (totalScore >= 93) {
+        letterGrade = 'A';
+        gpaPoints = 4.0;
+      } else if (totalScore >= 90) {
+        letterGrade = 'A-';
+        gpaPoints = 3.7;
+      } else if (totalScore >= 87) {
+        letterGrade = 'B+';
+        gpaPoints = 3.3;
+      } else if (totalScore >= 83) {
+        letterGrade = 'B';
+        gpaPoints = 3.0;
+      } else if (totalScore >= 80) {
+        letterGrade = 'B-';
+        gpaPoints = 2.7;
+      } else if (totalScore >= 77) {
+        letterGrade = 'C+';
+        gpaPoints = 2.3;
+      } else if (totalScore >= 73) {
+        letterGrade = 'C';
+        gpaPoints = 2.0;
+      } else if (totalScore >= 70) {
+        letterGrade = 'C-';
+        gpaPoints = 1.7;
+      } else if (totalScore >= 67) {
+        letterGrade = 'D+';
+        gpaPoints = 1.3;
+      } else if (totalScore >= 65) {
+        letterGrade = 'D';
+        gpaPoints = 1.0;
+      } else if (totalScore >= 60) {
+        letterGrade = 'D-';
+        gpaPoints = 0.7;
+      }
+      
+      const grade = await ctx.db.grades.update({
         where: { grade_id: gradeId },
         data: {
           ...scoreData,
+          total_score: Math.round(totalScore * 100) / 100,
+          letter_grade: letterGrade,
+          gpa_points: gpaPoints,
           recorded_by: recordedBy,
           recorded_at: new Date(),
         },
@@ -163,6 +285,11 @@ export const gradeRouter = createTRPCRouter({
           }
         }
       });
+      
+      // 更新学生的总GPA
+      await updateStudentGPA(ctx.db, grade.student_id);
+      
+      return grade;
     }),
 
   // 删除成绩记录
@@ -644,3 +771,61 @@ export const gradeRouter = createTRPCRouter({
       };
     }),
 });
+
+// 辅助函数：更新学生的总GPA和学分
+async function updateStudentGPA(db: any, studentId: string) {
+  // 获取学生所有有效成绩
+  const grades = await db.grades.findMany({
+    where: {
+      student_id: studentId,
+      total_score: { not: null },
+      gpa_points: { not: null },
+    },
+    include: {
+      class: {
+        include: {
+          course: {
+            select: {
+              credits: true,
+            }
+          }
+        }
+      }
+    }
+  });
+  
+  if (grades.length === 0) {
+    // 如果没有成绩，重置GPA和学分
+    await db.students.update({
+      where: { student_id: studentId },
+      data: {
+        gpa: 0.00,
+        total_credits: 0,
+      }
+    });
+    return;
+  }
+  
+  // 计算加权平均GPA
+  let totalGpaPoints = 0;
+  let totalCredits = 0;
+  
+  for (const grade of grades) {
+    const credits = Number(grade.class.course.credits) || 0;
+    const gpaPoints = Number(grade.gpa_points) || 0;
+    
+    totalGpaPoints += gpaPoints * credits;
+    totalCredits += credits;
+  }
+  
+  const weightedGPA = totalCredits > 0 ? totalGpaPoints / totalCredits : 0;
+  
+  // 更新学生记录
+  await db.students.update({
+    where: { student_id: studentId },
+    data: {
+      gpa: Math.round(weightedGPA * 100) / 100,
+      total_credits: totalCredits,
+    }
+  });
+}

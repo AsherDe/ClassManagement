@@ -39,24 +39,57 @@ export const teacherRouter = createTRPCRouter({
       classId: z.number(),
     }))
     .query(async ({ ctx, input }) => {
-      const students = await ctx.db.$queryRaw`
-        SELECT 
-          s.student_id,
-          u.real_name,
-          m.major_name,
-          s.grade,
-          s.class_number,
-          s.gpa,
-          e.enrolled_at
-        FROM enrollments e
-        JOIN students s ON e.student_id = s.student_id
-        JOIN users u ON s.user_id = u.user_id
-        LEFT JOIN majors m ON s.major_id = m.major_id
-        WHERE e.class_id = ${input.classId}
-        ORDER BY s.student_id
-      `;
+      // Use Prisma relations instead of raw SQL to ensure proper data structure
+      const enrollments = await ctx.db.enrollments.findMany({
+        where: {
+          class_id: input.classId,
+          status: "enrolled"
+        },
+        include: {
+          student: {
+            include: {
+              user: {
+                select: {
+                  user_id: true,
+                  username: true,
+                  real_name: true,
+                  email: true,
+                  phone: true,
+                }
+              },
+              major: {
+                select: {
+                  major_id: true,
+                  major_name: true,
+                  major_code: true,
+                  department: true,
+                }
+              }
+            }
+          }
+        },
+        orderBy: {
+          student: {
+            student_id: "asc"
+          }
+        }
+      });
 
-      return students;
+      // Transform the data to match frontend expectations
+      return enrollments.map(enrollment => ({
+        student_id: enrollment.student.student_id,
+        user: enrollment.student.user,
+        major: enrollment.student.major,
+        grade: enrollment.student.grade,
+        class_number: enrollment.student.class_number,
+        gpa: enrollment.student.gpa,
+        total_credits: enrollment.student.total_credits,
+        status: enrollment.student.status,
+        enrolled_at: enrollment.enrolled_at,
+        // Include additional fields for compatibility
+        real_name: enrollment.student.user.real_name,
+        major_name: enrollment.student.major?.major_name,
+      }));
     }),
 
   // 教师查询班级成绩

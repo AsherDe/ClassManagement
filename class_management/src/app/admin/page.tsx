@@ -134,7 +134,7 @@ export default function AdminDashboard() {
   const { data: systemStats } = api.admin.getSystemStats.useQuery();
   const { data: classes, refetch: refetchClasses } = api.admin.getAllClasses.useQuery();
   const { data: allStudents } = api.admin.getAllUsers.useQuery({ userType: "student" });
-  const { data: allTeachers } = api.admin.getAllUsers.useQuery({ userType: "teacher" });
+  const { data: allTeachers } = api.admin.getAllTeachers.useQuery();
   const { data: courses, refetch: refetchCourses } = api.admin.getAllCourses.useQuery();
   const { data: activities } = api.activity.getAll.useQuery();
   const { data: teacherWorkloadStats } = api.admin.getTeacherWorkloadStats.useQuery();
@@ -344,14 +344,14 @@ export default function AdminDashboard() {
   };
 
   const handleCreateClass = () => {
-    if (!newClass.courseId || !newClass.teacherId || !newClass.className.trim()) {
-      alert("请填写必填项：课程、教师和班级名称");
+    if (!newClass.courseId || !newClass.className.trim()) {
+      alert("请填写必填项：课程和班级名称");
       return;
     }
 
     createClassMutation.mutate({
       courseId: newClass.courseId,
-      teacherId: newClass.teacherId,
+      teacherId: newClass.teacherId || undefined, // 允许为空
       className: newClass.className,
       semester: newClass.semester || "2024年春季",
       maxStudents: newClass.maxStudents,
@@ -1116,16 +1116,16 @@ export default function AdminDashboard() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">授课教师 *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">授课教师 (可选)</label>
                     <select
                       value={newClass.teacherId}
                       onChange={(e) => setNewClass({ ...newClass, teacherId: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="">请选择教师</option>
+                      <option value="">请选择教师（可不选）</option>
                       {allTeachers?.map((teacher: any) => (
-                        <option key={teacher.user_id} value={teacher.username}>
-                          {teacher.real_name} ({teacher.username})
+                        <option key={teacher.teacher_id} value={teacher.teacher_id}>
+                          {teacher.user?.real_name || 'Unknown Teacher'} ({teacher.teacher_id})
                         </option>
                       ))}
                     </select>

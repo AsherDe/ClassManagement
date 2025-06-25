@@ -613,7 +613,7 @@ export default function StudentDashboard() {
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600 mb-2">
                             <div>
                               <span className="font-medium">课程：</span>
-                              {activity.class.course.course_name}
+                              {activity.class?.course?.course_name || 'Unknown Course'}
                             </div>
                             <div>
                               <span className="font-medium">类型：</span>
@@ -646,7 +646,7 @@ export default function StudentDashboard() {
                           {activity.organizer && (
                             <div className="text-sm text-gray-600">
                               <span className="font-medium">组织者：</span>
-                              {activity.organizer.user.real_name}
+                              {activity.organizer?.user?.real_name || 'Unknown Organizer'}
                             </div>
                           )}
                         </div>
@@ -745,7 +745,7 @@ export default function StudentDashboard() {
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm text-gray-600">
                             <div>
                               <span className="font-medium">课程：</span>
-                              {participation.activity.class.course.course_name}
+                              {participation.activity?.class?.course?.course_name || 'Unknown Course'}
                             </div>
                             <div>
                               <span className="font-medium">报名时间：</span>

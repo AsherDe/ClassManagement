@@ -97,7 +97,7 @@ function StudentDetailModal({ student, isOpen, onClose }: StudentDetailModalProp
                 </tr>
               </thead>
               <tbody>
-                {student.grades.map((grade: any, index: number) => (
+                {(student.grades || []).map((grade: any, index: number) => (
                   <tr key={index}>
                     <td className="border border-gray-300 px-4 py-2">{grade.course_name}</td>
                     <td className="border border-gray-300 px-4 py-2 text-center">--</td>
@@ -178,7 +178,7 @@ export default function TeacherGradesPage() {
 
   const createGradeMutation = api.grade.create.useMutation({
     onSuccess: () => {
-      alert("成绩录入成功！");
+      alert("成绩录入成功！GPA已自动更新");
       refetchStudents();
     },
     onError: (error) => {
@@ -308,7 +308,7 @@ export default function TeacherGradesPage() {
   };
 
   const getExistingGrade = (student: Student | undefined) => {
-    return student?.grades.find(g => true); // There should be only one grade per student per course/semester
+    return student?.grades?.find(g => true); // There should be only one grade per student per course/semester
   };
 
   // Filter students based on search term
@@ -531,7 +531,17 @@ export default function TeacherGradesPage() {
                         />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                        {existingGrade?.total_score ? Number(existingGrade.total_score).toFixed(1) : '--'}
+                        <span className={`font-semibold ${
+                          existingGrade?.total_score 
+                            ? Number(existingGrade.total_score) >= 90 ? 'text-green-600' :
+                              Number(existingGrade.total_score) >= 80 ? 'text-blue-600' :
+                              Number(existingGrade.total_score) >= 70 ? 'text-yellow-600' :
+                              Number(existingGrade.total_score) >= 60 ? 'text-orange-600' :
+                              'text-red-600'
+                            : 'text-gray-500'
+                        }`}>
+                          {existingGrade?.total_score ? Number(existingGrade.total_score).toFixed(1) : '--'}
+                        </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -575,6 +585,9 @@ export default function TeacherGradesPage() {
             <div className="flex justify-between items-center">
               <div className="text-sm text-gray-600">
                 共 {(students as any)?.length || 0} 名学生 {searchTerm && `（筛选后 ${filteredStudents?.length} 名）`}
+                <div className="mt-1 text-xs text-blue-600">
+                  提交成绩后将自动计算总分、等级和GPA
+                </div>
               </div>
               <div className="flex gap-2">
                 <button
@@ -597,7 +610,7 @@ export default function TeacherGradesPage() {
                       : 'bg-blue-600 text-white hover:bg-blue-700'
                   }`}
                 >
-                  {isSubmitting ? '提交中...' : '提交新成绩'}
+                  {isSubmitting ? '提交中...' : '提交新成绩（自动计算GPA）'}
                 </button>
               </div>
             </div>
@@ -626,7 +639,8 @@ export default function TeacherGradesPage() {
               <li>• 输入成绩范围：0-100分</li>
               <li>• 支持平时、期中、期末成绩录入</li>
               <li>• 修改已有成绩会显示"修改"按钮</li>
-              <li>• 提交后自动计算总分、等级和GPA</li>
+              <li>• <strong>自动计算：</strong>总分 = 平时×30% + 期中×30% + 期末×40%</li>
+              <li>• <strong>GPA实时更新：</strong>根据学分加权计算学生总GPA</li>
             </ul>
           </div>
           <div>
@@ -636,7 +650,8 @@ export default function TeacherGradesPage() {
               <li>• 点击学生姓名查看详细成绩记录</li>
               <li>• 搜索功能支持姓名、学号、用户名</li>
               <li>• GPA颜色编码：绿色(≥3.5)、蓝色(≥3.0)、黄色(≥2.0)、红色(&lt;2.0)</li>
-              <li>• 显示总学分和通过状态</li>
+              <li>• 总分颜色编码：绿色(≥90)、蓝色(≥80)、黄色(≥70)、橙色(≥60)、红色(&lt;60)</li>
+              <li>• <strong>显示总学分和通过状态，每次录入后GPA自动更新</strong></li>
             </ul>
           </div>
         </div>

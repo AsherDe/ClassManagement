@@ -370,7 +370,7 @@ export default function TeacherDashboard() {
             </div>
 
             {/* Quick Access Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {/* Grade Entry Card */}
               <div className="bg-white shadow rounded-lg p-6 hover:shadow-lg transition-shadow">
                 <div className="flex items-center mb-4">
@@ -430,10 +430,10 @@ export default function TeacherDashboard() {
                   </li>
                 </ul>
                 <Link
-                  href="/teacher/grades"
+                  href="/teacher/gpa-ranking"
                   className="block w-full text-center bg-green-50 text-green-600 py-2 rounded-lg hover:bg-green-100 transition-colors"
                 >
-                  查看GPA
+                  查看GPA排名
                 </Link>
               </div>
 
@@ -467,6 +467,39 @@ export default function TeacherDashboard() {
                   className="block w-full text-center bg-purple-50 text-purple-600 py-2 rounded-lg hover:bg-purple-100 transition-colors"
                 >
                   查看学生
+                </Link>
+              </div>
+
+              {/* GPA Ranking Card */}
+              <div className="bg-white shadow rounded-lg p-6 hover:shadow-lg transition-shadow">
+                <div className="flex items-center mb-4">
+                  <div className="bg-yellow-100 p-3 rounded-lg">
+                    <span className="text-2xl">🏆</span>
+                  </div>
+                  <h3 className="ml-3 text-lg font-medium text-gray-900">GPA排名</h3>
+                </div>
+                <p className="text-gray-600 mb-4 text-sm">
+                  查看班级和全校学生GPA排名
+                </p>
+                <ul className="text-sm text-gray-700 space-y-1 mb-4">
+                  <li className="flex items-center">
+                    <span className="text-green-500 mr-2">✓</span>
+                    班级GPA排名
+                  </li>
+                  <li className="flex items-center">
+                    <span className="text-green-500 mr-2">✓</span>
+                    全校排名对比
+                  </li>
+                  <li className="flex items-center">
+                    <span className="text-green-500 mr-2">✓</span>
+                    专业排名统计
+                  </li>
+                </ul>
+                <Link
+                  href="/teacher/gpa-ranking"
+                  className="block w-full text-center bg-yellow-50 text-yellow-700 py-2 rounded-lg hover:bg-yellow-100 transition-colors"
+                >
+                  查看排名
                 </Link>
               </div>
             </div>
@@ -677,11 +710,11 @@ export default function TeacherDashboard() {
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600 mb-2">
                             <div>
                               <span className="font-medium">课程：</span>
-                              {activity.class.course.course_name}
+                              {activity.class?.course?.course_name || 'Unknown Course'}
                             </div>
                             <div>
                               <span className="font-medium">班级：</span>
-                              {activity.class.class_name}
+                              {activity.class?.class_name || 'Unknown Class'}
                             </div>
                             <div>
                               <span className="font-medium">开始时间：</span>
@@ -722,7 +755,7 @@ export default function TeacherDashboard() {
                           {activity.organizer && (
                             <div className="text-sm text-gray-600 mt-2">
                               <span className="font-medium">组织者：</span>
-                              {activity.organizer.user.real_name}
+                              {activity.organizer?.user?.real_name || 'Unknown Organizer'}
                             </div>
                           )}
                         </div>

@@ -10,8 +10,8 @@ interface Activity {
   activity_type: string;
   description?: string;
   location?: string;
-  start_time: string;
-  end_time?: string;
+  start_time: Date | string;
+  end_time?: Date | string;
   organizer_id?: string;
   organizer_name?: string;
   budget_amount: number;
@@ -19,7 +19,7 @@ interface Activity {
   participant_count: number;
   required_attendance: boolean;
   status: string;
-  created_at: string;
+  created_at: Date | string;
 }
 
 export default function TeacherActivitiesPage() {
@@ -43,8 +43,9 @@ export default function TeacherActivitiesPage() {
   // 使用教师ID获取相关活动
   const teacherId = "T001"; // 张伟教师
   
-  const { data: activities, refetch: refetchActivities } = api.activity.getAll.useQuery({
-    status: selectedTab === "all" ? undefined : selectedTab
+  const { data: activities, refetch: refetchActivities } = api.activity.getActivitiesByTeacher.useQuery({
+    teacherId,
+    status: selectedTab === "all" ? undefined : (selectedTab as "planned" | "ongoing" | "completed" | "cancelled")
   });
 
   const { data: activityStats } = api.activity.getTeacherActivityStats.useQuery({ 
@@ -55,7 +56,7 @@ export default function TeacherActivitiesPage() {
     teacherId 
   });
 
-  const createActivityMutation = api.activity.create.useMutation({
+  const createActivityMutation = api.activity.createByTeacher.useMutation({
     onSuccess: () => {
       alert("活动创建成功！");
       setIsCreateModalOpen(false);
@@ -93,11 +94,21 @@ export default function TeacherActivitiesPage() {
       return;
     }
 
+    // Map Chinese activity types to English enum values
+    const activityTypeMap: Record<string, string> = {
+      "学习": "lecture",
+      "文体": "sports",
+      "志愿": "volunteer",
+      "聚会": "social",
+      "其他": "other"
+    };
+
     try {
       await createActivityMutation.mutateAsync({
         classId: formData.classId,
+        teacherId,
         activityName: formData.activityName,
-        activityType: formData.activityType,
+        activityType: (activityTypeMap[formData.activityType] || "other") as "lecture" | "seminar" | "workshop" | "field_trip" | "competition" | "social" | "sports" | "cultural" | "volunteer" | "other",
         description: formData.description,
         location: formData.location,
         startTime: new Date(formData.startTime),
@@ -141,7 +152,7 @@ export default function TeacherActivitiesPage() {
     }
   };
 
-  const filteredActivities = (activities as Activity[] || []).filter(activity =>
+  const filteredActivities = (activities as any[] || []).filter((activity: any) =>
     activity.activity_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     activity.activity_type.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -378,6 +389,7 @@ export default function TeacherActivitiesPage() {
                   <option value="文体">文体</option>
                   <option value="志愿">志愿</option>
                   <option value="聚会">聚会</option>
+                  <option value="其他">其他</option>
                 </select>
               </div>
 

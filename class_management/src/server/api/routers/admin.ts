@@ -118,7 +118,7 @@ export const adminRouter = createTRPCRouter({
   createClassWithTeacher: publicProcedure
     .input(z.object({
       courseId: z.number(),
-      teacherId: z.string(),
+      teacherId: z.string().optional(), // 改为可选，允许创建未分配教师的班级
       className: z.string().min(1),
       semester: z.string().min(1),
       maxStudents: z.number().default(50),
@@ -126,16 +126,6 @@ export const adminRouter = createTRPCRouter({
       classroom: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      // 验证教师是否存在
-      const teacher = await ctx.db.teachers.findUnique({
-        where: { teacher_id: input.teacherId },
-        include: { user: true }
-      });
-
-      if (!teacher) {
-        throw new Error("指定的教师不存在");
-      }
-
       // 验证课程是否存在
       const course = await ctx.db.courses.findUnique({
         where: { course_id: input.courseId }
@@ -145,11 +135,24 @@ export const adminRouter = createTRPCRouter({
         throw new Error("指定的课程不存在");
       }
 
+      // 如果指定了教师，验证教师是否存在
+      let teacher = null;
+      if (input.teacherId) {
+        teacher = await ctx.db.teachers.findUnique({
+          where: { teacher_id: input.teacherId },
+          include: { user: true }
+        });
+
+        if (!teacher) {
+          throw new Error("指定的教师不存在");
+        }
+      }
+
       // 创建班级
       const newClass = await ctx.db.classes.create({
         data: {
           course_id: input.courseId,
-          teacher_id: input.teacherId,
+          teacher_id: input.teacherId || null, // 可以为null
           class_name: input.className,
           semester: input.semester,
           max_students: input.maxStudents,
@@ -160,17 +163,21 @@ export const adminRouter = createTRPCRouter({
         },
         include: {
           course: true,
-          teacher: {
+          teacher: teacher ? {
             include: {
               user: true,
             }
-          }
+          } : false
         }
       });
 
+      const message = teacher 
+        ? `班级 ${newClass.class_name} 创建成功，已分配给教师 ${teacher.user.real_name}`
+        : `班级 ${newClass.class_name} 创建成功，未分配教师`;
+
       return {
         success: true,
-        message: `班级 ${newClass.class_name} 创建成功，已分配给教师 ${teacher.user.real_name}`,
+        message,
         class: newClass,
       };
     }),
@@ -566,8 +573,51 @@ export const adminRouter = createTRPCRouter({
           phone: true,
           created_at: true,
           updated_at: true,
+          // 包含教师和学生的详细信息
+          teachers: input?.userType === "teacher" ? {
+            select: {
+              teacher_id: true,
+              title: true,
+              department: true,
+            }
+          } : false,
+          students: input?.userType === "student" ? {
+            select: {
+              student_id: true,
+              grade: true,
+              class_number: true,
+              major: {
+                select: {
+                  major_name: true,
+                }
+              }
+            }
+          } : false,
         },
         orderBy,
+      });
+    }),
+
+  // 管理员获取所有教师列表（专用于班级创建）
+  getAllTeachers: publicProcedure
+    .query(async ({ ctx }) => {
+      return await ctx.db.teachers.findMany({
+        include: {
+          user: {
+            select: {
+              user_id: true,
+              username: true,
+              real_name: true,
+              email: true,
+              phone: true,
+            }
+          }
+        },
+        orderBy: {
+          user: {
+            real_name: "asc"
+          }
+        }
       });
     }),
 

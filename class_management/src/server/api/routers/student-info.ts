@@ -154,28 +154,56 @@ export const studentInfoRouter = createTRPCRouter({
       studentId: z.string(),
     }))
     .query(async ({ ctx, input }) => {
-      const courses = await ctx.db.$queryRaw`
-        SELECT 
-          c.course_code,
-          c.course_name,
-          c.credits,
-          c.course_type,
-          cl.class_name,
-          cl.semester,
-          cl.class_time,
-          cl.classroom,
-          u.real_name as teacher_name,
-          e.enrolled_at
-        FROM enrollments e
-        JOIN classes cl ON e.class_id = cl.class_id
-        JOIN courses c ON cl.course_id = c.course_id
-        LEFT JOIN teachers t ON cl.teacher_id = t.teacher_id
-        LEFT JOIN users u ON t.user_id = u.user_id
-        WHERE e.student_id = ${input.studentId}
-        ORDER BY c.course_code
-      `;
+      const enrollments = await ctx.db.enrollments.findMany({
+        where: { 
+          student_id: input.studentId,
+          status: "enrolled"
+        },
+        include: {
+          class: {
+            include: {
+              course: {
+                select: {
+                  course_id: true,
+                  course_code: true,
+                  course_name: true,
+                  credits: true,
+                  course_type: true,
+                }
+              },
+              teacher: {
+                include: {
+                  user: {
+                    select: {
+                      real_name: true,
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        orderBy: {
+          class: {
+            course: {
+              course_code: "asc"
+            }
+          }
+        }
+      });
 
-      return courses as any;
+      return enrollments.map(enrollment => ({
+        course_code: enrollment.class.course.course_code,
+        course_name: enrollment.class.course.course_name,
+        credits: enrollment.class.course.credits,
+        course_type: enrollment.class.course.course_type,
+        class_name: enrollment.class.class_name,
+        semester: enrollment.class.semester,
+        class_time: enrollment.class.class_time,
+        classroom: enrollment.class.classroom,
+        teacher_name: enrollment.class.teacher?.user?.real_name || "未分配",
+        enrolled_at: enrollment.enrolled_at,
+      }));
     }),
 
   // 学生查询个人成绩
@@ -184,26 +212,42 @@ export const studentInfoRouter = createTRPCRouter({
       studentId: z.string(),
     }))
     .query(async ({ ctx, input }) => {
-      const grades = await ctx.db.$queryRaw`
-        SELECT 
-          c.course_code,
-          c.course_name,
-          c.credits,
-          cl.semester,
-          g.regular_score,
-          g.midterm_score,
-          g.final_score,
-          g.total_score,
-          g.letter_grade,
-          g.gpa_points
-        FROM grades g
-        JOIN classes cl ON g.class_id = cl.class_id
-        JOIN courses c ON cl.course_id = c.course_id
-        WHERE g.student_id = ${input.studentId}
-        ORDER BY cl.semester, c.course_code
-      `;
+      const grades = await ctx.db.grades.findMany({
+        where: { student_id: input.studentId },
+        include: {
+          class: {
+            include: {
+              course: {
+                select: {
+                  course_id: true,
+                  course_code: true,
+                  course_name: true,
+                  credits: true,
+                }
+              }
+            }
+          }
+        },
+        orderBy: [
+          { class: { semester: "asc" } },
+          { class: { course: { course_code: "asc" } } }
+        ]
+      });
 
-      return grades as any;
+      return grades.map(grade => ({
+        course_code: grade.class.course.course_code,
+        course_name: grade.class.course.course_name,
+        credits: grade.class.course.credits,
+        semester: grade.class.semester,
+        regular_score: grade.regular_score,
+        midterm_score: grade.midterm_score,
+        final_score: grade.final_score,
+        total_score: grade.total_score,
+        letter_grade: grade.letter_grade,
+        gpa_points: grade.gpa_points,
+        grade_id: grade.grade_id,
+        recorded_at: grade.recorded_at,
+      }));
     }),
 
   // 学生GPA统计
