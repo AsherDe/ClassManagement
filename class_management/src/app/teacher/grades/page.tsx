@@ -5,19 +5,13 @@ import { api } from "~/trpc/react";
 import Link from "next/link";
 
 interface Student {
-  id: number;
-  student_code: string;
-  name: string;
+  student_id: string;
+  real_name: string;
+  major_name: string | null;
+  grade: number | null;
+  class_number: number | null;
   gpa: number | null;
-  total_credits: number | null;
-  user: {
-    id: number;
-    username: string;
-  };
-  class: {
-    id: number;
-    class_name: string;
-  };
+  enrolled_at: string;
   grades: Array<{
     id: number;
     regular_score: number | null;

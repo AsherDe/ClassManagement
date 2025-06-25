@@ -223,9 +223,9 @@ export default function AdminDashboard() {
                 <div className="space-y-3">
                   {activities && activities.length > 0 ? (
                     activities.slice(0, 5).map((activity: any) => (
-                      <div key={activity.id} className="text-sm">
-                        <div className="font-medium">{activity.title || activity.activity_name}</div>
-                        <div className="text-gray-500">{activity.class?.class_name}</div>
+                      <div key={activity.activity_id || activity.id || activity.activity_name} className="text-sm">
+                        <div className="font-medium">{activity.activity_name || activity.title}</div>
+                        <div className="text-gray-500">{activity.class?.class_name || "未指定班级"}</div>
                       </div>
                     ))
                   ) : (
@@ -325,11 +325,11 @@ export default function AdminDashboard() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {(students as any)?.map((student: any) => (
-                    <tr key={student.student_code}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{student.student_code}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.name}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.user.username}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">计算机科学</td>
+                    <tr key={student.student_id || student.student_code || student.id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{student.student_id || student.student_code}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.real_name || student.name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.user?.username || 'N/A'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.major_name || '计算机科学'}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
                           正常
@@ -368,12 +368,14 @@ export default function AdminDashboard() {
             <h2 className="text-lg font-medium text-gray-900 mb-4">活动列表</h2>
             <div className="space-y-4">
               {activities && activities.length > 0 ? (
-                activities.map((activity: any, index: number) => (
-                  <div key={index} className="border rounded-lg p-4">
+                activities.map((activity: any) => (
+                  <div key={activity.activity_id || activity.id || activity.title} className="border rounded-lg p-4">
                     <div className="flex justify-between items-start">
                       <div>
-                        <h3 className="font-medium text-gray-900">{activity.title || "活动"}</h3>
+                        <h3 className="font-medium text-gray-900">{activity.activity_name || activity.title || "活动"}</h3>
                         <p className="text-sm text-gray-600">{activity.description || "暂无描述"}</p>
+                        <p className="text-sm text-gray-500 mt-1">状态: {activity.status || "未知"}</p>
+                        <p className="text-sm text-gray-500">类型: {activity.activity_type || "未分类"}</p>
                       </div>
                     </div>
                   </div>

@@ -180,9 +180,10 @@ export default function TestGradesPage() {
             <div className="space-y-4">
               <div className="bg-gray-50 p-4 rounded">
                 <h3 className="font-medium">学生信息</h3>
-                <p>姓名: {student.name}</p>
-                <p>学号: {student.student_code}</p>
-                <p>班级: {student.class.class_name}</p>
+                <p>姓名: {student.real_name}</p>
+                <p>学号: {student.student_id}</p>
+                <p>专业: {student.major_name || '未分配'}</p>
+                <p>年级班级: {student.grade}级{student.class_number}班</p>
               </div>
 
               <div className="bg-blue-50 p-4 rounded">
@@ -209,7 +210,7 @@ export default function TestGradesPage() {
               </div>
 
               <div className="text-sm text-gray-600">
-                <p>更新时间: {new Date(student.updated_at).toLocaleString()}</p>
+                <p>学生状态: {student.status === 'active' ? '在读' : student.status}</p>
               </div>
             </div>
           ) : (

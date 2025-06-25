@@ -358,8 +358,120 @@ export default function TeacherDashboard() {
 
         {activeTab === "activities" && (
           <div className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">班级活动</h2>
-            <p className="text-gray-500 text-center py-8">班级活动功能开发中...</p>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-lg font-medium text-gray-900">班级活动管理</h2>
+              <Link
+                href="/teacher/activities"
+                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+              >
+                管理活动
+              </Link>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Activity Management Card */}
+              <div className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-blue-400 transition-colors">
+                <div className="text-center">
+                  <div className="bg-blue-100 p-3 rounded-lg inline-block mb-4">
+                    <span className="text-2xl">🎯</span>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">创建活动</h3>
+                  <p className="text-gray-600 text-sm mb-4">
+                    创建班级学习、文体、志愿等各类活动
+                  </p>
+                  <Link
+                    href="/teacher/activities"
+                    className="inline-block bg-blue-50 text-blue-600 px-4 py-2 rounded hover:bg-blue-100"
+                  >
+                    创建新活动
+                  </Link>
+                </div>
+              </div>
+
+              {/* Activity Stats Card */}
+              <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-6">
+                <div className="text-center">
+                  <div className="bg-green-200 p-3 rounded-lg inline-block mb-4">
+                    <span className="text-2xl">📊</span>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">活动统计</h3>
+                  <p className="text-gray-600 text-sm mb-4">
+                    查看活动参与情况和统计数据
+                  </p>
+                  <Link
+                    href="/teacher/activities"
+                    className="inline-block bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                  >
+                    查看统计
+                  </Link>
+                </div>
+              </div>
+
+              {/* Recent Activities Card */}
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-6">
+                <div className="text-center">
+                  <div className="bg-purple-200 p-3 rounded-lg inline-block mb-4">
+                    <span className="text-2xl">⏰</span>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">近期活动</h3>
+                  <p className="text-gray-600 text-sm mb-4">
+                    查看最近的活动安排和状态
+                  </p>
+                  <Link
+                    href="/teacher/activities"
+                    className="inline-block bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700"
+                  >
+                    查看活动
+                  </Link>
+                </div>
+              </div>
+            </div>
+
+            {/* Feature Highlights */}
+            <div className="mt-8 border-t pt-6">
+              <h3 className="text-md font-medium text-gray-900 mb-4">✨ 活动管理功能</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-start">
+                  <div className="bg-blue-100 p-2 rounded-lg mr-3">
+                    <span className="text-lg">📝</span>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-900">活动创建与管理</h4>
+                    <p className="text-sm text-gray-600">支持学习、文体、志愿等多种活动类型</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start">
+                  <div className="bg-green-100 p-2 rounded-lg mr-3">
+                    <span className="text-lg">👥</span>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-900">参与者管理</h4>
+                    <p className="text-sm text-gray-600">跟踪学生参与情况和出勤状态</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start">
+                  <div className="bg-yellow-100 p-2 rounded-lg mr-3">
+                    <span className="text-lg">💰</span>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-900">预算管理</h4>
+                    <p className="text-sm text-gray-600">活动预算制定和支出跟踪</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start">
+                  <div className="bg-purple-100 p-2 rounded-lg mr-3">
+                    <span className="text-lg">📈</span>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-900">状态跟踪</h4>
+                    <p className="text-sm text-gray-600">活动从计划到完成的全流程管理</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>

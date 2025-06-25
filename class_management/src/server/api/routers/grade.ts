@@ -70,7 +70,7 @@ export const gradeRouter = createTRPCRouter({
       });
     }),
 
-  // 创建成绩记录（教师录入）
+  // 创建成绩记录（教师录入）- 支持upsert
   create: publicProcedure
     .input(z.object({
       studentId: z.string(),
@@ -81,8 +81,22 @@ export const gradeRouter = createTRPCRouter({
       recordedBy: z.string(),
     }))
     .mutation(async ({ ctx, input }) => {
-      return await ctx.db.grades.create({
-        data: {
+      // 使用 upsert 来处理已存在的记录
+      return await ctx.db.grades.upsert({
+        where: {
+          student_id_class_id: {
+            student_id: input.studentId,
+            class_id: input.classId,
+          }
+        },
+        update: {
+          regular_score: input.regularScore,
+          midterm_score: input.midtermScore,
+          final_score: input.finalScore,
+          recorded_by: input.recordedBy,
+          recorded_at: new Date(),
+        },
+        create: {
           student_id: input.studentId,
           class_id: input.classId,
           regular_score: input.regularScore,

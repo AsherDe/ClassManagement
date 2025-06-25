@@ -443,3 +443,106 @@ INSERT INTO grades (student_id, class_id, regular_score, midterm_score, final_sc
 ('20231004441', 2, 91.0, 89.0, 93.0, 'T001'), -- 数据库原理
 ('20231004441', 6, 87.0, 90.0, 92.0, 'T002'); -- 人工智能导论
 
+-- =============================================================================
+-- 7. 班级活动数据（演示活动管理功能）
+-- =============================================================================
+
+-- 创建班级活动表（如果不存在）
+CREATE TABLE IF NOT EXISTS class_activities (
+    activity_id SERIAL PRIMARY KEY,
+    class_id INTEGER NOT NULL,
+    activity_name VARCHAR(200) NOT NULL,
+    activity_type VARCHAR(50) NOT NULL, -- 学习、文体、志愿、聚会等
+    description TEXT,
+    location VARCHAR(200),
+    start_time TIMESTAMP NOT NULL,
+    end_time TIMESTAMP,
+    organizer_id VARCHAR(20), -- 组织者（学生学号）
+    budget_amount DECIMAL(10,2) DEFAULT 0,
+    actual_cost DECIMAL(10,2) DEFAULT 0,
+    participant_count INTEGER DEFAULT 0,
+    required_attendance BOOLEAN DEFAULT FALSE,
+    status VARCHAR(20) DEFAULT 'planned' CHECK (status IN ('planned', 'ongoing', 'completed', 'cancelled')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (organizer_id) REFERENCES students(student_id)
+);
+
+-- 插入班级活动演示数据
+INSERT INTO class_activities (
+    class_id, activity_name, activity_type, description, location, 
+    start_time, end_time, organizer_id, budget_amount, actual_cost,
+    participant_count, required_attendance, status
+) VALUES
+-- 信息科学与技术1班活动
+(1, '数据库课程设计展示', '学习', '展示各小组的数据库课程设计成果，相互学习交流', 'A101教室', 
+ '2024-12-20 14:00:00', '2024-12-20 16:30:00', '20231001111', 200.00, 180.50, 3, true, 'planned'),
+
+(1, '元旦联欢会', '文体', '班级元旦联欢会，准备节目、游戏和聚餐', '学生活动中心', 
+ '2024-12-31 18:00:00', '2024-12-31 21:00:00', '20231001112', 800.00, 0.00, 0, false, 'planned'),
+
+(1, '专业认知实习', '学习', '参观当地知名IT企业，了解行业发展现状', '新疆软件园', 
+ '2024-11-15 08:00:00', '2024-11-15 18:00:00', '20231001111', 300.00, 285.00, 3, true, 'completed'),
+
+-- 网络安全2班活动
+(2, '网络安全技能竞赛', '学习', '班级内部网络安全知识竞赛，提升专业技能', 'B202实验室', 
+ '2024-12-25 13:30:00', '2024-12-25 17:00:00', '20231002221', 150.00, 120.00, 2, false, 'planned'),
+
+(2, '班级篮球赛', '文体', '与其他班级进行友谊篮球比赛', '体育馆篮球场', 
+ '2024-12-18 16:00:00', '2024-12-18 18:00:00', '20231002222', 100.00, 85.00, 2, false, 'completed'),
+
+-- 软件工程3班活动
+(3, '软件开发项目路演', '学习', '展示本学期软件工程课程项目成果', 'C301会议室', 
+ '2024-12-22 09:00:00', '2024-12-22 12:00:00', '20231003331', 250.00, 0.00, 0, true, 'planned'),
+
+(3, '志愿服务活动', '志愿', '到石河子市敬老院开展志愿服务', '石河子市敬老院', 
+ '2024-11-20 09:00:00', '2024-11-20 15:00:00', '20231003332', 200.00, 180.00, 2, false, 'completed'),
+
+-- 大数据4班活动
+(4, '大数据分析案例分享', '学习', '邀请行业专家分享大数据分析实际案例', 'D401报告厅', 
+ '2024-12-28 14:00:00', '2024-12-28 16:00:00', '20231004441', 300.00, 0.00, 0, false, 'planned'),
+
+-- 跨班级联合活动
+(1, '期末复习答疑会', '学习', '邀请高年级学长学姐分享学习经验，答疑解惑', '图书馆报告厅', 
+ '2024-12-10 19:00:00', '2024-12-10 21:00:00', '20231001113', 100.00, 95.00, 3, false, 'completed'),
+
+(2, '班级秋游活动', '文体', '前往天山大峡谷进行秋游，增进同学友谊', '天山大峡谷', 
+ '2024-10-15 07:00:00', '2024-10-15 19:00:00', '20231002221', 1200.00, 1150.00, 2, false, 'completed');
+
+-- 添加活动参与记录的辅助表（可选）
+CREATE TABLE IF NOT EXISTS activity_participants (
+    participant_id SERIAL PRIMARY KEY,
+    activity_id INTEGER NOT NULL,
+    student_id VARCHAR(20) NOT NULL,
+    registration_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    attendance_status VARCHAR(20) DEFAULT 'registered' CHECK (attendance_status IN ('registered', 'attended', 'absent', 'cancelled')),
+    feedback TEXT,
+    FOREIGN KEY (activity_id) REFERENCES class_activities(activity_id) ON DELETE CASCADE,
+    FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE CASCADE,
+    UNIQUE(activity_id, student_id)
+);
+
+-- 插入活动参与记录示例
+INSERT INTO activity_participants (activity_id, student_id, attendance_status, feedback) VALUES
+-- 专业认知实习参与记录
+(3, '20231001111', 'attended', '企业参观很有意义，对专业发展有了更清晰的认识'),
+(3, '20231001112', 'attended', '收获很大，了解了实际工作环境'),
+(3, '20231001113', 'attended', '希望以后多组织类似活动'),
+
+-- 篮球赛参与记录
+(5, '20231002221', 'attended', '比赛很精彩，增进了班级团结'),
+(5, '20231002222', 'attended', '运动让大家更有活力'),
+
+-- 志愿服务参与记录
+(7, '20231003331', 'attended', '帮助老人很有意义，会继续参加志愿活动'),
+(7, '20231003332', 'attended', '通过服务他人，自己也收获了成长'),
+
+-- 期末复习答疑会参与记录
+(9, '20231001111', 'attended', '学长的经验分享很实用'),
+(9, '20231001112', 'attended', '解答了很多学习疑问'),
+(9, '20231001113', 'attended', '对期末考试更有信心了'),
+
+-- 秋游活动参与记录
+(10, '20231002221', 'attended', '风景优美，同学们玩得很开心'),
+(10, '20231002222', 'attended', '团队活动增进了友谊');
+

@@ -50,6 +50,8 @@ model students {
   major       majors?       @relation(fields: [major_id], references: [major_id])
   enrollments enrollments[]
   grades      grades[]
+  organized_activities class_activities[]
+  activity_participations activity_participants[]
 
   @@index([major_id])
   @@index([grade, class_number])
@@ -154,4 +156,47 @@ model grades {
   @@unique([student_id, class_id])
   @@index([student_id])
   @@index([class_id])
+}
+
+model class_activities {
+  activity_id          Int       @id @default(autoincrement())
+  class_id             Int
+  activity_name        String    @db.VarChar(200)
+  activity_type        String    @db.VarChar(50)
+  description          String?
+  location             String?   @db.VarChar(200)
+  start_time           DateTime  @db.Timestamp(6)
+  end_time             DateTime? @db.Timestamp(6)
+  organizer_id         String?   @db.VarChar(20)
+  budget_amount        Decimal?  @default(0) @db.Decimal(10, 2)
+  actual_cost          Decimal?  @default(0) @db.Decimal(10, 2)
+  participant_count    Int?      @default(0)
+  required_attendance  Boolean?  @default(false)
+  status               String?   @default("planned") @db.VarChar(20)
+  created_at           DateTime? @default(now()) @db.Timestamp(6)
+  updated_at           DateTime? @default(now()) @db.Timestamp(6)
+
+  organizer students? @relation(fields: [organizer_id], references: [student_id])
+  participants activity_participants[]
+
+  @@index([class_id])
+  @@index([activity_type])
+  @@index([status])
+  @@index([start_time])
+}
+
+model activity_participants {
+  participant_id      Int       @id @default(autoincrement())
+  activity_id         Int
+  student_id          String    @db.VarChar(20)
+  registration_time   DateTime? @default(now()) @db.Timestamp(6)
+  attendance_status   String?   @default("registered") @db.VarChar(20)
+  feedback            String?
+
+  activity class_activities @relation(fields: [activity_id], references: [activity_id], onDelete: Cascade)
+  student  students         @relation(fields: [student_id], references: [student_id], onDelete: Cascade)
+
+  @@unique([activity_id, student_id])
+  @@index([activity_id])
+  @@index([student_id])
 }
