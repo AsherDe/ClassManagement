@@ -251,4 +251,292 @@ GROUP BY m.major_id, m.major_name
 ORDER BY avg_gpa DESC;`
       };
     }),
+
+  // 教师管理学生信息 - 查看详细信息
+  getStudentDetail: publicProcedure
+    .input(z.object({
+      studentId: z.string(),
+      teacherId: z.string(),
+    }))
+    .query(async ({ ctx, input }) => {
+      // 验证教师是否有权限查看该学生（教师必须教授该学生所在的课程）
+      const teacherClassIds = await ctx.db.classes.findMany({
+        where: { teacher_id: input.teacherId },
+        select: { class_id: true }
+      });
+
+      const classIds = teacherClassIds.map(c => c.class_id);
+
+      const studentEnrollment = await ctx.db.enrollments.findFirst({
+        where: {
+          student_id: input.studentId,
+          class_id: { in: classIds },
+          status: "enrolled"
+        }
+      });
+
+      if (!studentEnrollment) {
+        throw new Error("您没有权限查看该学生信息");
+      }
+
+      // 获取学生详细信息
+      const student = await ctx.db.students.findUnique({
+        where: { student_id: input.studentId },
+        include: {
+          user: {
+            select: {
+              user_id: true,
+              username: true,
+              real_name: true,
+              email: true,
+              phone: true,
+              created_at: true,
+            }
+          },
+          major: true,
+          enrollments: {
+            where: { status: "enrolled" },
+            include: {
+              class: {
+                include: {
+                  course: true,
+                  teacher: {
+                    include: {
+                      user: true,
+                    }
+                  }
+                }
+              }
+            }
+          },
+          grades: {
+            include: {
+              class: {
+                include: {
+                  course: true,
+                }
+              }
+            }
+          }
+        }
+      });
+
+      return student;
+    }),
+
+  // 教师更新学生信息（仅限部分字段）
+  updateStudentInfo: publicProcedure
+    .input(z.object({
+      studentId: z.string(),
+      teacherId: z.string(),
+      email: z.string().email().optional(),
+      phone: z.string().optional(),
+      status: z.enum(["active", "inactive", "suspended"]).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // 验证教师权限
+      const teacherClassIds = await ctx.db.classes.findMany({
+        where: { teacher_id: input.teacherId },
+        select: { class_id: true }
+      });
+
+      const classIds = teacherClassIds.map(c => c.class_id);
+
+      const studentEnrollment = await ctx.db.enrollments.findFirst({
+        where: {
+          student_id: input.studentId,
+          class_id: { in: classIds },
+          status: "enrolled"
+        }
+      });
+
+      if (!studentEnrollment) {
+        throw new Error("您没有权限修改该学生信息");
+      }
+
+      // 更新用户信息
+      const updatedUser = await ctx.db.users.update({
+        where: { user_id: (await ctx.db.students.findUnique({ where: { student_id: input.studentId } }))?.user_id },
+        data: {
+          email: input.email,
+          phone: input.phone,
+          updated_at: new Date(),
+        },
+      });
+
+      // 更新学生状态
+      if (input.status) {
+        await ctx.db.students.update({
+          where: { student_id: input.studentId },
+          data: { status: input.status },
+        });
+      }
+
+      return {
+        success: true,
+        message: "学生信息更新成功",
+        user: updatedUser,
+      };
+    }),
+
+  // 教师获取班级学生出勤统计
+  getClassAttendanceStats: publicProcedure
+    .input(z.object({
+      classId: z.number(),
+      teacherId: z.string(),
+    }))
+    .query(async ({ ctx, input }) => {
+      // 验证教师权限
+      const classInfo = await ctx.db.classes.findUnique({
+        where: { class_id: input.classId, teacher_id: input.teacherId },
+        include: { course: true }
+      });
+
+      if (!classInfo) {
+        throw new Error("您没有权限查看该班级信息");
+      }
+
+      // 获取班级学生列表和出勤统计
+      const students = await ctx.db.$queryRaw`
+        SELECT 
+          s.student_id,
+          u.real_name as student_name,
+          s.gpa,
+          COUNT(CASE WHEN ap.attendance_status = 'present' THEN 1 END) as present_count,
+          COUNT(CASE WHEN ap.attendance_status = 'absent' THEN 1 END) as absent_count,
+          COUNT(ap.participant_id) as total_activities,
+          ROUND(
+            COUNT(CASE WHEN ap.attendance_status = 'present' THEN 1 END) * 100.0 / 
+            NULLIF(COUNT(ap.participant_id), 0), 1
+          ) as attendance_rate
+        FROM enrollments e
+        JOIN students s ON e.student_id = s.student_id
+        JOIN users u ON s.user_id = u.user_id
+        LEFT JOIN activity_participants ap ON s.student_id = ap.student_id
+        LEFT JOIN class_activities ca ON ap.activity_id = ca.activity_id
+        WHERE e.class_id = ${input.classId} AND e.status = 'enrolled'
+        GROUP BY s.student_id, u.real_name, s.gpa
+        ORDER BY u.real_name
+      `;
+
+      return {
+        class: classInfo,
+        students,
+      };
+    }),
+
+  // 教师标记学生出勤状态
+  markStudentAttendance: publicProcedure
+    .input(z.object({
+      activityId: z.number(),
+      studentId: z.string(),
+      teacherId: z.string(),
+      attendanceStatus: z.enum(["present", "absent", "late", "excused"]),
+      feedback: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // 验证教师权限 - 检查活动是否属于教师的班级
+      const activity = await ctx.db.class_activities.findUnique({
+        where: { activity_id: input.activityId },
+        include: {
+          class: {
+            where: { teacher_id: input.teacherId }
+          }
+        }
+      });
+
+      if (!activity) {
+        throw new Error("您没有权限管理该活动");
+      }
+
+      // 更新或创建出勤记录
+      const attendance = await ctx.db.activity_participants.upsert({
+        where: {
+          activity_id_student_id: {
+            activity_id: input.activityId,
+            student_id: input.studentId,
+          }
+        },
+        update: {
+          attendance_status: input.attendanceStatus,
+          feedback: input.feedback,
+        },
+        create: {
+          activity_id: input.activityId,
+          student_id: input.studentId,
+          attendance_status: input.attendanceStatus,
+          feedback: input.feedback,
+        },
+      });
+
+      return {
+        success: true,
+        message: "出勤状态更新成功",
+        attendance,
+      };
+    }),
+
+  // 教师获取学生学习表现分析
+  getStudentPerformanceAnalysis: publicProcedure
+    .input(z.object({
+      teacherId: z.string(),
+      classId: z.number().optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const whereClause = input.classId ? 
+        `WHERE cl.teacher_id = '${input.teacherId}' AND cl.class_id = ${input.classId}` :
+        `WHERE cl.teacher_id = '${input.teacherId}'`;
+
+      const analysis = await ctx.db.$queryRaw`
+        SELECT 
+          s.student_id,
+          u.real_name as student_name,
+          s.gpa as current_gpa,
+          COUNT(DISTINCT g.grade_id) as course_count,
+          ROUND(AVG(g.total_score), 2) as avg_score,
+          ROUND(MIN(g.total_score), 2) as min_score,
+          ROUND(MAX(g.total_score), 2) as max_score,
+          COUNT(CASE WHEN g.letter_grade IN ('A+', 'A') THEN 1 END) as excellent_count,
+          COUNT(CASE WHEN g.letter_grade = 'F' THEN 1 END) as fail_count,
+          ROUND(
+            COUNT(CASE WHEN g.letter_grade IN ('A+', 'A') THEN 1 END) * 100.0 / 
+            NULLIF(COUNT(g.grade_id), 0), 1
+          ) as excellent_rate
+        FROM students s
+        JOIN users u ON s.user_id = u.user_id
+        JOIN enrollments e ON s.student_id = e.student_id
+        JOIN classes cl ON e.class_id = cl.class_id
+        LEFT JOIN grades g ON s.student_id = g.student_id AND g.class_id = cl.class_id
+        ${whereClause}
+        GROUP BY s.student_id, u.real_name, s.gpa
+        ORDER BY avg_score DESC
+      `;
+
+      return {
+        data: analysis,
+        sql: `SELECT 
+    s.student_id,
+    u.real_name as student_name,
+    s.gpa as current_gpa,
+    COUNT(DISTINCT g.grade_id) as course_count,
+    ROUND(AVG(g.total_score), 2) as avg_score,
+    ROUND(MIN(g.total_score), 2) as min_score,
+    ROUND(MAX(g.total_score), 2) as max_score,
+    COUNT(CASE WHEN g.letter_grade IN ('A+', 'A') THEN 1 END) as excellent_count,
+    COUNT(CASE WHEN g.letter_grade = 'F' THEN 1 END) as fail_count,
+    ROUND(
+        COUNT(CASE WHEN g.letter_grade IN ('A+', 'A') THEN 1 END) * 100.0 / 
+        NULLIF(COUNT(g.grade_id), 0), 1
+    ) as excellent_rate
+FROM students s
+JOIN users u ON s.user_id = u.user_id
+JOIN enrollments e ON s.student_id = e.student_id
+JOIN classes cl ON e.class_id = cl.class_id
+LEFT JOIN grades g ON s.student_id = g.student_id AND g.class_id = cl.class_id
+${whereClause.replace('WHERE', '\nWHERE')}
+GROUP BY s.student_id, u.real_name, s.gpa
+ORDER BY avg_score DESC;`
+      };
+    }),
+
 });

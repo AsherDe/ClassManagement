@@ -298,6 +298,302 @@ export const gradeRouter = createTRPCRouter({
       return results;
     }),
 
+  // 教师专用：计算并更新总分和等级
+  calculateAndUpdateGrades: publicProcedure
+    .input(z.object({
+      classId: z.number(),
+      teacherId: z.string(),
+      regularWeight: z.number().min(0).max(1).default(0.3),
+      midtermWeight: z.number().min(0).max(1).default(0.3),
+      finalWeight: z.number().min(0).max(1).default(0.4),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // 验证教师权限
+      const classInfo = await ctx.db.classes.findUnique({
+        where: { class_id: input.classId, teacher_id: input.teacherId },
+      });
+
+      if (!classInfo) {
+        throw new Error("您没有权限操作该班级成绩");
+      }
+
+      // 获取班级所有成绩记录
+      const grades = await ctx.db.grades.findMany({
+        where: { class_id: input.classId },
+      });
+
+      const updatedGrades = [];
+
+      for (const grade of grades) {
+        const regular = Number(grade.regular_score) || 0;
+        const midterm = Number(grade.midterm_score) || 0;
+        const final = Number(grade.final_score) || 0;
+
+        // 计算总分
+        const totalScore = regular * input.regularWeight + 
+                          midterm * input.midtermWeight + 
+                          final * input.finalWeight;
+
+        // 计算等级和GPA点数
+        let letterGrade = 'F';
+        let gpaPoints = 0;
+
+        if (totalScore >= 97) {
+          letterGrade = 'A+';
+          gpaPoints = 4.0;
+        } else if (totalScore >= 93) {
+          letterGrade = 'A';
+          gpaPoints = 4.0;
+        } else if (totalScore >= 90) {
+          letterGrade = 'A-';
+          gpaPoints = 3.7;
+        } else if (totalScore >= 87) {
+          letterGrade = 'B+';
+          gpaPoints = 3.3;
+        } else if (totalScore >= 83) {
+          letterGrade = 'B';
+          gpaPoints = 3.0;
+        } else if (totalScore >= 80) {
+          letterGrade = 'B-';
+          gpaPoints = 2.7;
+        } else if (totalScore >= 77) {
+          letterGrade = 'C+';
+          gpaPoints = 2.3;
+        } else if (totalScore >= 73) {
+          letterGrade = 'C';
+          gpaPoints = 2.0;
+        } else if (totalScore >= 70) {
+          letterGrade = 'C-';
+          gpaPoints = 1.7;
+        } else if (totalScore >= 67) {
+          letterGrade = 'D+';
+          gpaPoints = 1.3;
+        } else if (totalScore >= 65) {
+          letterGrade = 'D';
+          gpaPoints = 1.0;
+        } else if (totalScore >= 60) {
+          letterGrade = 'D-';
+          gpaPoints = 0.7;
+        }
+
+        // 更新成绩记录
+        const updatedGrade = await ctx.db.grades.update({
+          where: { grade_id: grade.grade_id },
+          data: {
+            total_score: Math.round(totalScore * 100) / 100,
+            letter_grade: letterGrade,
+            gpa_points: gpaPoints,
+            recorded_at: new Date(),
+          },
+        });
+
+        updatedGrades.push(updatedGrade);
+      }
+
+      return {
+        success: true,
+        message: `成功更新 ${updatedGrades.length} 条成绩记录`,
+        updatedCount: updatedGrades.length,
+      };
+    }),
+
+  // 教师专用：批量录入或更新成绩
+  batchUpsertByTeacher: publicProcedure
+    .input(z.object({
+      classId: z.number(),
+      teacherId: z.string(),
+      grades: z.array(z.object({
+        studentId: z.string(),
+        regularScore: z.number().min(0).max(100).optional(),
+        midtermScore: z.number().min(0).max(100).optional(),
+        finalScore: z.number().min(0).max(100).optional(),
+      })),
+      autoCalculate: z.boolean().default(true),
+      regularWeight: z.number().min(0).max(1).default(0.3),
+      midtermWeight: z.number().min(0).max(1).default(0.3),
+      finalWeight: z.number().min(0).max(1).default(0.4),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // 验证教师权限
+      const classInfo = await ctx.db.classes.findUnique({
+        where: { class_id: input.classId, teacher_id: input.teacherId },
+      });
+
+      if (!classInfo) {
+        throw new Error("您没有权限操作该班级成绩");
+      }
+
+      const results = [];
+
+      for (const gradeData of input.grades) {
+        let totalScore: number | undefined;
+        let letterGrade: string | undefined;
+        let gpaPoints: number | undefined;
+
+        // 如果开启自动计算
+        if (input.autoCalculate) {
+          const regular = gradeData.regularScore || 0;
+          const midterm = gradeData.midtermScore || 0;
+          const final = gradeData.finalScore || 0;
+
+          totalScore = regular * input.regularWeight + 
+                      midterm * input.midtermWeight + 
+                      final * input.finalWeight;
+
+          // 计算等级和GPA
+          if (totalScore >= 97) {
+            letterGrade = 'A+';
+            gpaPoints = 4.0;
+          } else if (totalScore >= 93) {
+            letterGrade = 'A';
+            gpaPoints = 4.0;
+          } else if (totalScore >= 90) {
+            letterGrade = 'A-';
+            gpaPoints = 3.7;
+          } else if (totalScore >= 87) {
+            letterGrade = 'B+';
+            gpaPoints = 3.3;
+          } else if (totalScore >= 83) {
+            letterGrade = 'B';
+            gpaPoints = 3.0;
+          } else if (totalScore >= 80) {
+            letterGrade = 'B-';
+            gpaPoints = 2.7;
+          } else if (totalScore >= 77) {
+            letterGrade = 'C+';
+            gpaPoints = 2.3;
+          } else if (totalScore >= 73) {
+            letterGrade = 'C';
+            gpaPoints = 2.0;
+          } else if (totalScore >= 70) {
+            letterGrade = 'C-';
+            gpaPoints = 1.7;
+          } else if (totalScore >= 67) {
+            letterGrade = 'D+';
+            gpaPoints = 1.3;
+          } else if (totalScore >= 65) {
+            letterGrade = 'D';
+            gpaPoints = 1.0;
+          } else if (totalScore >= 60) {
+            letterGrade = 'D-';
+            gpaPoints = 0.7;
+          } else {
+            letterGrade = 'F';
+            gpaPoints = 0;
+          }
+        }
+
+        // 使用upsert操作
+        const grade = await ctx.db.grades.upsert({
+          where: {
+            student_id_class_id: {
+              student_id: gradeData.studentId,
+              class_id: input.classId,
+            }
+          },
+          update: {
+            regular_score: gradeData.regularScore,
+            midterm_score: gradeData.midtermScore,
+            final_score: gradeData.finalScore,
+            total_score: totalScore,
+            letter_grade: letterGrade,
+            gpa_points: gpaPoints,
+            recorded_by: input.teacherId,
+            recorded_at: new Date(),
+          },
+          create: {
+            student_id: gradeData.studentId,
+            class_id: input.classId,
+            regular_score: gradeData.regularScore,
+            midterm_score: gradeData.midtermScore,
+            final_score: gradeData.finalScore,
+            total_score: totalScore,
+            letter_grade: letterGrade,
+            gpa_points: gpaPoints,
+            recorded_by: input.teacherId,
+          },
+        });
+
+        results.push(grade);
+      }
+
+      return {
+        success: true,
+        message: `成功处理 ${results.length} 条成绩记录`,
+        grades: results,
+      };
+    }),
+
+  // 教师专用：查询班级成绩详情
+  getClassGradesByTeacher: publicProcedure
+    .input(z.object({
+      classId: z.number(),
+      teacherId: z.string(),
+      includeStatistics: z.boolean().default(true),
+    }))
+    .query(async ({ ctx, input }) => {
+      // 验证教师权限
+      const classInfo = await ctx.db.classes.findUnique({
+        where: { class_id: input.classId, teacher_id: input.teacherId },
+        include: { course: true }
+      });
+
+      if (!classInfo) {
+        throw new Error("您没有权限查看该班级成绩");
+      }
+
+      // 获取成绩数据
+      const grades = await ctx.db.grades.findMany({
+        where: { class_id: input.classId },
+        include: {
+          student: {
+            include: {
+              user: {
+                select: {
+                  real_name: true,
+                }
+              },
+              major: true,
+            }
+          }
+        },
+        orderBy: [
+          { total_score: "desc" },
+          { student_id: "asc" }
+        ]
+      });
+
+      let statistics = null;
+
+      if (input.includeStatistics && grades.length > 0) {
+        const scores = grades.map(g => Number(g.total_score || 0)).filter(s => s > 0);
+        const total = grades.length;
+        const sum = scores.reduce((a, b) => a + b, 0);
+        const average = scores.length > 0 ? sum / scores.length : 0;
+        const highest = scores.length > 0 ? Math.max(...scores) : 0;
+        const lowest = scores.length > 0 ? Math.min(...scores) : 0;
+        const passCount = scores.filter(score => score >= 60).length;
+        const passRate = scores.length > 0 ? (passCount / scores.length) * 100 : 0;
+        const excellentCount = grades.filter(g => ['A+', 'A'].includes(g.letter_grade || '')).length;
+        const excellentRate = (excellentCount / total) * 100;
+
+        statistics = {
+          total,
+          average: Math.round(average * 100) / 100,
+          highest,
+          lowest,
+          passRate: Math.round(passRate * 100) / 100,
+          excellentRate: Math.round(excellentRate * 100) / 100,
+        };
+      }
+
+      return {
+        class: classInfo,
+        grades,
+        statistics,
+      };
+    }),
+
   // 获取成绩统计
   getStatistics: publicProcedure
     .input(z.object({

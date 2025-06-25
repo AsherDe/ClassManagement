@@ -2,31 +2,150 @@ import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 
 export const studentInfoRouter = createTRPCRouter({
-  // 学生查看个人信息
+  // 学生查看个人详细信息
   getStudentInfo: publicProcedure
     .input(z.object({
       studentId: z.string(),
     }))
     .query(async ({ ctx, input }) => {
-      const studentInfo = await ctx.db.$queryRaw`
-        SELECT 
-          s.student_id,
-          u.real_name,
-          u.email,
-          u.phone,
-          m.major_name,
-          s.grade,
-          s.class_number,
-          s.gpa,
-          s.total_credits,
-          s.status
-        FROM students s
-        JOIN users u ON s.user_id = u.user_id
-        LEFT JOIN majors m ON s.major_id = m.major_id
-        WHERE s.student_id = ${input.studentId}
-      `;
+      const student = await ctx.db.students.findUnique({
+        where: { student_id: input.studentId },
+        include: {
+          user: {
+            select: {
+              user_id: true,
+              username: true,
+              real_name: true,
+              email: true,
+              phone: true,
+              created_at: true,
+              updated_at: true,
+            }
+          },
+          major: {
+            select: {
+              major_id: true,
+              major_name: true,
+              major_code: true,
+              department: true,
+            }
+          },
+          enrollments: {
+            where: { status: "enrolled" },
+            include: {
+              class: {
+                include: {
+                  course: {
+                    select: {
+                      course_id: true,
+                      course_name: true,
+                      course_code: true,
+                      credits: true,
+                    }
+                  }
+                }
+              }
+            }
+          },
+          grades: {
+            include: {
+              class: {
+                include: {
+                  course: {
+                    select: {
+                      course_name: true,
+                      course_code: true,
+                      credits: true,
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
 
-      return (studentInfo as any)[0] || null;
+      return student;
+    }),
+
+  // 学生更新个人可修改信息
+  updateStudentInfo: publicProcedure
+    .input(z.object({
+      studentId: z.string(),
+      email: z.string().email().optional(),
+      phone: z.string().max(20).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // 验证学生是否存在
+      const student = await ctx.db.students.findUnique({
+        where: { student_id: input.studentId },
+        include: { user: true }
+      });
+
+      if (!student) {
+        throw new Error("学生信息不存在");
+      }
+
+      // 更新用户信息
+      const updatedUser = await ctx.db.users.update({
+        where: { user_id: student.user_id },
+        data: {
+          email: input.email,
+          phone: input.phone,
+          updated_at: new Date(),
+        },
+        select: {
+          user_id: true,
+          username: true,
+          real_name: true,
+          email: true,
+          phone: true,
+          updated_at: true,
+        }
+      });
+
+      return {
+        success: true,
+        message: "个人信息更新成功",
+        user: updatedUser,
+      };
+    }),
+
+  // 学生修改密码
+  changePassword: publicProcedure
+    .input(z.object({
+      studentId: z.string(),
+      currentPassword: z.string(),
+      newPassword: z.string().min(6).max(100),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // 验证学生信息和当前密码
+      const student = await ctx.db.students.findUnique({
+        where: { student_id: input.studentId },
+        include: { user: true }
+      });
+
+      if (!student) {
+        throw new Error("学生信息不存在");
+      }
+
+      if (student.user.password !== input.currentPassword) {
+        throw new Error("当前密码不正确");
+      }
+
+      // 更新密码
+      await ctx.db.users.update({
+        where: { user_id: student.user_id },
+        data: {
+          password: input.newPassword,
+          updated_at: new Date(),
+        },
+      });
+
+      return {
+        success: true,
+        message: "密码修改成功",
+      };
     }),
 
   // 学生查看自己的课程信息
@@ -162,13 +281,144 @@ export const studentInfoRouter = createTRPCRouter({
       return ranking as any;
     }),
 
-  // 学生同班同学信息
+  // 学生查看同班同学信息（增强版）
   getClassmates: publicProcedure
     .input(z.object({
       studentId: z.string(),
     }))
     .query(async ({ ctx, input }) => {
-      // 首先获取该学生的基本信息
+      // 获取该学生所选的课程班级
+      const studentEnrollments = await ctx.db.enrollments.findMany({
+        where: { 
+          student_id: input.studentId,
+          status: "enrolled"
+        },
+        include: {
+          class: {
+            include: {
+              course: {
+                select: {
+                  course_id: true,
+                  course_name: true,
+                  course_code: true,
+                }
+              }
+            }
+          }
+        }
+      });
+
+      if (studentEnrollments.length === 0) {
+        return { classmates: [], classmatesByClass: [] };
+      }
+
+      const classIds = studentEnrollments.map(e => e.class_id);
+
+      // 获取所有在同一课程班级的学生
+      const allClassmates = await ctx.db.enrollments.findMany({
+        where: {
+          class_id: { in: classIds },
+          student_id: { not: input.studentId },
+          status: "enrolled"
+        },
+        include: {
+          student: {
+            include: {
+              user: {
+                select: {
+                  real_name: true,
+                  username: true,
+                  phone: true,
+                  email: true,
+                }
+              },
+              major: {
+                select: {
+                  major_name: true,
+                  major_code: true,
+                }
+              }
+            }
+          },
+          class: {
+            include: {
+              course: {
+                select: {
+                  course_name: true,
+                  course_code: true,
+                }
+              }
+            }
+          }
+        }
+      });
+
+      // 按课程分组同学信息
+      const classmatesByClass = studentEnrollments.map(enrollment => {
+        const courseClassmates = allClassmates.filter(
+          classmate => classmate.class_id === enrollment.class_id
+        );
+
+        return {
+          class: enrollment.class,
+          classmates: courseClassmates.map(cm => ({
+            student_id: cm.student.student_id,
+            real_name: cm.student.user.real_name,
+            username: cm.student.user.username,
+            phone: cm.student.user.phone,
+            email: cm.student.user.email,
+            major_name: cm.student.major?.major_name,
+            major_code: cm.student.major?.major_code,
+            grade: cm.student.grade,
+            class_number: cm.student.class_number,
+            gpa: cm.student.gpa,
+          }))
+        };
+      });
+
+      // 获取所有同学的去重列表
+      const uniqueClassmates = Array.from(
+        new Map(
+          allClassmates.map(cm => [
+            cm.student.student_id,
+            {
+              student_id: cm.student.student_id,
+              real_name: cm.student.user.real_name,
+              username: cm.student.user.username,
+              phone: cm.student.user.phone,
+              email: cm.student.user.email,
+              major_name: cm.student.major?.major_name,
+              major_code: cm.student.major?.major_code,
+              grade: cm.student.grade,
+              class_number: cm.student.class_number,
+              gpa: cm.student.gpa,
+              shared_classes: allClassmates
+                .filter(ac => ac.student.student_id === cm.student.student_id)
+                .map(ac => ({
+                  course_name: ac.class.course.course_name,
+                  course_code: ac.class.course.course_code,
+                  class_name: ac.class.class_name,
+                }))
+            }
+          ])
+        ).values()
+      ).sort((a, b) => a.real_name.localeCompare(b.real_name));
+
+      return {
+        classmates: uniqueClassmates,
+        classmatesByClass,
+        totalClassmates: uniqueClassmates.length,
+        sharedCourses: studentEnrollments.length,
+      };
+    }),
+
+  // 学生查看同专业同年级学生
+  getMajorClassmates: publicProcedure
+    .input(z.object({
+      studentId: z.string(),
+    }))
+    .query(async ({ ctx, input }) => {
+      // 获取该学生的基本信息
       const currentStudent = await ctx.db.students.findUnique({
         where: { student_id: input.studentId },
         select: { grade: true, class_number: true, major_id: true }
@@ -178,14 +428,13 @@ export const studentInfoRouter = createTRPCRouter({
         return [];
       }
 
-      // 查找同年级同班的学生
-      const classmates = await ctx.db.students.findMany({
+      // 查找同专业同年级的学生
+      const majorClassmates = await ctx.db.students.findMany({
         where: {
           grade: currentStudent.grade,
-          class_number: currentStudent.class_number,
           major_id: currentStudent.major_id,
           student_id: {
-            not: input.studentId // 排除自己
+            not: input.studentId
           }
         },
         include: {
@@ -200,14 +449,44 @@ export const studentInfoRouter = createTRPCRouter({
           major: {
             select: {
               major_name: true,
+              major_code: true,
             }
           }
         },
-        orderBy: {
-          student_id: 'asc'
-        }
+        orderBy: [
+          { class_number: 'asc' },
+          { student_id: 'asc' }
+        ]
       });
 
-      return classmates as any;
+      // 按班级分组
+      const classmatesByClassNumber = majorClassmates.reduce((acc, student) => {
+        const classKey = student.class_number;
+        if (!acc[classKey]) {
+          acc[classKey] = [];
+        }
+        acc[classKey].push({
+          student_id: student.student_id,
+          real_name: student.user.real_name,
+          username: student.user.username,
+          phone: student.user.phone,
+          email: student.user.email,
+          grade: student.grade,
+          class_number: student.class_number,
+          gpa: student.gpa,
+          is_same_class: student.class_number === currentStudent.class_number,
+        });
+        return acc;
+      }, {} as Record<number, any[]>);
+
+      return {
+        majorClassmates,
+        classmatesByClassNumber,
+        totalMajorClassmates: majorClassmates.length,
+        currentStudent: {
+          grade: currentStudent.grade,
+          class_number: currentStudent.class_number,
+        }
+      };
     }),
 });

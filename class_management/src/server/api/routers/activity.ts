@@ -107,7 +107,78 @@ export const activityRouter = createTRPCRouter({
       return participants;
     }),
 
-  // 创建活动
+  // 教师创建班级活动
+  createByTeacher: publicProcedure
+    .input(z.object({
+      classId: z.number(),
+      teacherId: z.string(),
+      activityName: z.string().min(1).max(200),
+      activityType: z.enum(["lecture", "seminar", "workshop", "field_trip", "competition", "social", "sports", "cultural", "volunteer", "other"]),
+      description: z.string().optional(),
+      location: z.string().max(200).optional(),
+      startTime: z.date(),
+      endTime: z.date().optional(),
+      organizerId: z.string().optional(),
+      budgetAmount: z.number().min(0).default(0),
+      requiredAttendance: z.boolean().default(false),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // 验证教师权限
+      const classInfo = await ctx.db.classes.findUnique({
+        where: { class_id: input.classId, teacher_id: input.teacherId },
+        include: { course: true }
+      });
+
+      if (!classInfo) {
+        throw new Error("您没有权限在该班级创建活动");
+      }
+
+      // 验证时间合理性
+      if (input.endTime && input.endTime <= input.startTime) {
+        throw new Error("结束时间必须晚于开始时间");
+      }
+
+      // 如果指定了组织者，验证学生是否在该班级
+      if (input.organizerId) {
+        const studentInClass = await ctx.db.enrollments.findFirst({
+          where: {
+            student_id: input.organizerId,
+            class_id: input.classId,
+            status: "enrolled"
+          }
+        });
+
+        if (!studentInClass) {
+          throw new Error("指定的组织者不在该班级中");
+        }
+      }
+
+      const activity = await ctx.db.class_activities.create({
+        data: {
+          class_id: input.classId,
+          activity_name: input.activityName,
+          activity_type: input.activityType,
+          description: input.description,
+          location: input.location,
+          start_time: input.startTime,
+          end_time: input.endTime,
+          organizer_id: input.organizerId,
+          budget_amount: input.budgetAmount,
+          required_attendance: input.requiredAttendance,
+          status: 'planned',
+          participant_count: 0,
+          actual_cost: 0,
+        },
+      });
+
+      return {
+        success: true,
+        message: `班级活动 ${activity.activity_name} 创建成功`,
+        activity,
+      };
+    }),
+
+  // 创建活动（通用接口保留）
   create: publicProcedure
     .input(z.object({
       classId: z.number(),
@@ -140,7 +211,212 @@ export const activityRouter = createTRPCRouter({
       return result;
     }),
 
-  // 更新活动
+  // 教师更新班级活动
+  updateByTeacher: publicProcedure
+    .input(z.object({
+      activityId: z.number(),
+      teacherId: z.string(),
+      activityName: z.string().min(1).max(200).optional(),
+      activityType: z.enum(["lecture", "seminar", "workshop", "field_trip", "competition", "social", "sports", "cultural", "volunteer", "other"]).optional(),
+      description: z.string().optional(),
+      location: z.string().max(200).optional(),
+      startTime: z.date().optional(),
+      endTime: z.date().optional(),
+      budgetAmount: z.number().min(0).optional(),
+      actualCost: z.number().min(0).optional(),
+      status: z.enum(["planned", "ongoing", "completed", "cancelled"]).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // 验证教师权限
+      const activity = await ctx.db.class_activities.findUnique({
+        where: { activity_id: input.activityId },
+        include: {
+          class: true
+        }
+      });
+
+      if (!activity) {
+        throw new Error("活动不存在");
+      }
+
+      const classInfo = await ctx.db.classes.findUnique({
+        where: { class_id: activity.class_id, teacher_id: input.teacherId },
+      });
+
+      if (!classInfo) {
+        throw new Error("您没有权限修改该活动");
+      }
+
+      // 验证时间合理性
+      const startTime = input.startTime || activity.start_time;
+      const endTime = input.endTime || activity.end_time;
+      
+      if (endTime && endTime <= startTime) {
+        throw new Error("结束时间必须晚于开始时间");
+      }
+
+      // 如果活动已完成，限制某些字段的修改
+      if (activity.status === 'completed' && input.status !== 'completed') {
+        if (input.startTime || input.endTime || input.budgetAmount) {
+          throw new Error("已完成的活动不能修改时间和预算信息");
+        }
+      }
+
+      const { activityId, teacherId, ...updateData } = input;
+
+      const updatedActivity = await ctx.db.class_activities.update({
+        where: { activity_id: input.activityId },
+        data: {
+          ...(updateData.activityName && { activity_name: updateData.activityName }),
+          ...(updateData.activityType && { activity_type: updateData.activityType }),
+          ...(updateData.description !== undefined && { description: updateData.description }),
+          ...(updateData.location !== undefined && { location: updateData.location }),
+          ...(updateData.startTime && { start_time: updateData.startTime }),
+          ...(updateData.endTime !== undefined && { end_time: updateData.endTime }),
+          ...(updateData.budgetAmount !== undefined && { budget_amount: updateData.budgetAmount }),
+          ...(updateData.actualCost !== undefined && { actual_cost: updateData.actualCost }),
+          ...(updateData.status && { status: updateData.status }),
+          updated_at: new Date(),
+        },
+        include: {
+          class: {
+            include: {
+              course: true,
+            }
+          }
+        }
+      });
+
+      return {
+        success: true,
+        message: `活动 ${updatedActivity.activity_name} 更新成功`,
+        activity: updatedActivity,
+      };
+    }),
+
+  // 教师删除班级活动
+  deleteByTeacher: publicProcedure
+    .input(z.object({
+      activityId: z.number(),
+      teacherId: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // 验证教师权限
+      const activity = await ctx.db.class_activities.findUnique({
+        where: { activity_id: input.activityId },
+        include: {
+          class: true,
+          participants: true,
+        }
+      });
+
+      if (!activity) {
+        throw new Error("活动不存在");
+      }
+
+      const classInfo = await ctx.db.classes.findUnique({
+        where: { class_id: activity.class_id, teacher_id: input.teacherId },
+      });
+
+      if (!classInfo) {
+        throw new Error("您没有权限删除该活动");
+      }
+
+      // 检查活动状态，如果正在进行或已完成，不允许删除
+      if (activity.status === 'ongoing') {
+        throw new Error("正在进行的活动不能删除");
+      }
+
+      if (activity.status === 'completed' && activity.participants.length > 0) {
+        throw new Error("已完成且有参与者的活动不能删除，建议改为取消状态");
+      }
+
+      // 先删除相关的参与者记录（由于设置了级联删除，这一步可能不需要）
+      await ctx.db.activity_participants.deleteMany({
+        where: { activity_id: input.activityId }
+      });
+
+      // 删除活动
+      await ctx.db.class_activities.delete({
+        where: { activity_id: input.activityId }
+      });
+
+      return {
+        success: true,
+        message: `活动 ${activity.activity_name} 删除成功`,
+      };
+    }),
+
+  // 教师获取班级活动列表
+  getActivitiesByTeacher: publicProcedure
+    .input(z.object({
+      teacherId: z.string(),
+      classId: z.number().optional(),
+      status: z.enum(["planned", "ongoing", "completed", "cancelled"]).optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      // 获取教师的班级列表
+      const teacherClasses = await ctx.db.classes.findMany({
+        where: { teacher_id: input.teacherId },
+        select: { class_id: true }
+      });
+
+      const classIds = teacherClasses.map(c => c.class_id);
+
+      if (classIds.length === 0) {
+        return [];
+      }
+
+      const where: Record<string, unknown> = {
+        class_id: { in: classIds }
+      };
+
+      if (input.classId) {
+        where.class_id = input.classId;
+      }
+
+      if (input.status) {
+        where.status = input.status;
+      }
+
+      const activities = await ctx.db.class_activities.findMany({
+        where,
+        include: {
+          class: {
+            include: {
+              course: true,
+            }
+          },
+          organizer: {
+            include: {
+              user: {
+                select: {
+                  real_name: true,
+                }
+              }
+            }
+          },
+          participants: {
+            include: {
+              student: {
+                include: {
+                  user: {
+                    select: {
+                      real_name: true,
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        orderBy: { start_time: "desc" },
+      });
+
+      return activities;
+    }),
+
+  // 更新活动（通用接口保留）
   update: publicProcedure
     .input(z.object({
       id: z.number(),
