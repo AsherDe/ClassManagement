@@ -301,8 +301,8 @@ export default function StudentDashboard() {
             <h2 className="text-lg font-medium text-gray-900 mb-4">我的课程</h2>
             {courses && (courses as any).length > 0 ? (
               <div className="space-y-4">
-                {(courses as any).map((course: any, index: number) => (
-                  <div key={index} className="border rounded-lg p-4 hover:bg-gray-50">
+                {(courses as any).map((course: any) => (
+                  <div key={`${course.course_code}-${course.semester}`} className="border rounded-lg p-4 hover:bg-gray-50">
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <h3 className="font-medium text-gray-900">
@@ -499,8 +499,8 @@ export default function StudentDashboard() {
                         <div className="mt-2">
                           <p className="text-xs text-gray-500">共同课程:</p>
                           <div className="flex flex-wrap gap-1 mt-1">
-                            {classmate.shared_classes.slice(0, 3).map((course: any, idx: number) => (
-                              <span key={idx} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                            {classmate.shared_classes.slice(0, 3).map((course: any) => (
+                              <span key={`${classmate.student_id}-${course.course_code}`} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
                                 {course.course_code}
                               </span>
                             ))}
@@ -538,7 +538,7 @@ export default function StudentDashboard() {
                 
                 {/* 按班级分组显示 */}
                 {Object.entries((majorClassmates as any).classmatesByClassNumber || {}).map(([classNumber, students]) => (
-                  <div key={classNumber} className="mb-6">
+                  <div key={`class-${classNumber}`} className="mb-6">
                     <h3 className="text-md font-medium text-gray-800 mb-3">
                       {classNumber} 班 ({(students as any).length} 人)
                     </h3>

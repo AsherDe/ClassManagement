@@ -171,33 +171,54 @@ export const teacherRouter = createTRPCRouter({
       teacherId: z.string().optional(),
     }))
     .query(async ({ ctx, input }) => {
-      let whereClause = "";
       let sqlWhereClause = "";
       if (input?.teacherId) {
-        whereClause = `WHERE cl.teacher_id = '${input.teacherId}'`;
         sqlWhereClause = `WHERE cl.teacher_id = '${input.teacherId}'`;
       }
 
-      const analysis = await ctx.db.$queryRaw`
-        SELECT 
-          c.course_name,
-          COUNT(g.grade_id) as student_count,
-          ROUND(AVG(g.total_score), 2) as avg_score,
-          ROUND(MIN(g.total_score), 2) as min_score,
-          ROUND(MAX(g.total_score), 2) as max_score,
-          COUNT(CASE WHEN g.letter_grade IN ('A+', 'A') THEN 1 END) as excellent_count,
-          COUNT(CASE WHEN g.letter_grade = 'F' THEN 1 END) as fail_count,
-          ROUND(
-            COUNT(CASE WHEN g.letter_grade IN ('A+', 'A') THEN 1 END) * 100.0 / COUNT(g.grade_id), 
-            1
-          ) as excellent_rate
-        FROM courses c
-        JOIN classes cl ON c.course_id = cl.course_id
-        JOIN grades g ON cl.class_id = g.class_id
-        ${whereClause ? `WHERE cl.teacher_id = ${input.teacherId}` : ''}
-        GROUP BY c.course_id, c.course_name
-        ORDER BY avg_score DESC
-      `;
+      let analysis;
+      if (input?.teacherId) {
+        analysis = await ctx.db.$queryRaw`
+          SELECT 
+            c.course_name,
+            COUNT(g.grade_id) as student_count,
+            ROUND(AVG(g.total_score), 2) as avg_score,
+            ROUND(MIN(g.total_score), 2) as min_score,
+            ROUND(MAX(g.total_score), 2) as max_score,
+            COUNT(CASE WHEN g.letter_grade IN ('A+', 'A') THEN 1 END) as excellent_count,
+            COUNT(CASE WHEN g.letter_grade = 'F' THEN 1 END) as fail_count,
+            ROUND(
+              COUNT(CASE WHEN g.letter_grade IN ('A+', 'A') THEN 1 END) * 100.0 / COUNT(g.grade_id), 
+              1
+            ) as excellent_rate
+          FROM courses c
+          JOIN classes cl ON c.course_id = cl.course_id
+          JOIN grades g ON cl.class_id = g.class_id
+          WHERE cl.teacher_id = ${input.teacherId}
+          GROUP BY c.course_id, c.course_name
+          ORDER BY avg_score DESC
+        `;
+      } else {
+        analysis = await ctx.db.$queryRaw`
+          SELECT 
+            c.course_name,
+            COUNT(g.grade_id) as student_count,
+            ROUND(AVG(g.total_score), 2) as avg_score,
+            ROUND(MIN(g.total_score), 2) as min_score,
+            ROUND(MAX(g.total_score), 2) as max_score,
+            COUNT(CASE WHEN g.letter_grade IN ('A+', 'A') THEN 1 END) as excellent_count,
+            COUNT(CASE WHEN g.letter_grade = 'F' THEN 1 END) as fail_count,
+            ROUND(
+              COUNT(CASE WHEN g.letter_grade IN ('A+', 'A') THEN 1 END) * 100.0 / COUNT(g.grade_id), 
+              1
+            ) as excellent_rate
+          FROM courses c
+          JOIN classes cl ON c.course_id = cl.course_id
+          JOIN grades g ON cl.class_id = g.class_id
+          GROUP BY c.course_id, c.course_name
+          ORDER BY avg_score DESC
+        `;
+      }
 
       return {
         data: analysis,

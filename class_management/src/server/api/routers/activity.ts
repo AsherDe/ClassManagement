@@ -394,6 +394,17 @@ export const activityRouter = createTRPCRouter({
       const activities = await ctx.db.class_activities.findMany({
         where,
         include: {
+          class: {
+            include: {
+              course: {
+                select: {
+                  course_id: true,
+                  course_code: true,
+                  course_name: true,
+                }
+              }
+            }
+          },
           organizer: {
             include: {
               user: {
@@ -523,6 +534,17 @@ export const activityRouter = createTRPCRouter({
       const activities = await ctx.db.class_activities.findMany({
         where,
         include: {
+          class: {
+            include: {
+              course: {
+                select: {
+                  course_id: true,
+                  course_code: true,
+                  course_name: true,
+                }
+              }
+            }
+          },
           organizer: {
             include: {
               user: {
@@ -800,6 +822,17 @@ export const activityRouter = createTRPCRouter({
         include: {
           activity: {
             include: {
+              class: {
+                include: {
+                  course: {
+                    select: {
+                      course_id: true,
+                      course_code: true,
+                      course_name: true,
+                    }
+                  }
+                }
+              },
               organizer: {
                 include: {
                   user: {
