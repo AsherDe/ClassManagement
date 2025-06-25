@@ -7,8 +7,22 @@ import SqlDisplay from "~/components/SqlDisplay";
 
 export default function TeacherDashboard() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<{username: string; role: string} | null>(null);
   const [activeTab, setActiveTab] = useState("classes");
+  const [selectedClass, setSelectedClass] = useState<any>(null);
+  const [showStudentDetail, setShowStudentDetail] = useState<{
+    isOpen: boolean;
+    student: any;
+  }>({ isOpen: false, student: null });
+  const [editingStudent, setEditingStudent] = useState<{
+    isOpen: boolean;
+    student: any;
+  }>({ isOpen: false, student: null });
+  const [editForm, setEditForm] = useState({
+    realName: "",
+    email: "",
+    phone: "",
+  });
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -42,9 +56,70 @@ export default function TeacherDashboard() {
     { enabled: !!user }
   );
 
+  const { data: classStudents, refetch: refetchStudents } = api.teacher.getClassStudents.useQuery(
+    { classId: selectedClass?.class_id },
+    { enabled: !!selectedClass }
+  );
+
+  const { data: teacherActivities } = api.activity.getActivitiesByTeacher.useQuery(
+    { teacherId },
+    { enabled: !!user }
+  );
+
+  const { data: activityStats } = api.activity.getTeacherActivityStats.useQuery(
+    { teacherId },
+    { enabled: !!user }
+  );
+
+  const updateStudentMutation = api.teacher.updateStudentInfo.useMutation({
+    onSuccess: () => {
+      alert("学生信息更新成功");
+      setEditingStudent({ isOpen: false, student: null });
+      refetchStudents();
+    },
+    onError: (error) => {
+      alert(`更新失败: ${error.message}`);
+    },
+  });
+
   const handleLogout = () => {
     localStorage.removeItem("user");
     router.push("/");
+  };
+
+  const openStudentDetail = (student: any) => {
+    setShowStudentDetail({ isOpen: true, student });
+  };
+
+  const openEditStudent = (student: any) => {
+    setEditingStudent({ isOpen: true, student });
+    setEditForm({
+      realName: student.user?.real_name || "",
+      email: student.user?.email || "",
+      phone: student.user?.phone || "",
+    });
+  };
+
+  const handleUpdateStudent = () => {
+    if (!editingStudent.student || !editForm.realName.trim()) {
+      alert("请填写学生姓名");
+      return;
+    }
+
+    updateStudentMutation.mutate({
+      teacherId,
+      studentId: editingStudent.student.student_id,
+      email: editForm.email || undefined,
+      phone: editForm.phone || undefined,
+    });
+  };
+
+  const selectClass = (classItem: any) => {
+    setSelectedClass(classItem);
+  };
+
+  const backToClassList = () => {
+    setSelectedClass(null);
   };
 
   if (!user) return <div>Loading...</div>;
@@ -116,36 +191,154 @@ export default function TeacherDashboard() {
 
         {activeTab === "classes" && (
           <div className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">我的班级</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {(teacherCourses as any)?.map((course: any) => (
-                <div key={course.class_id} className="border rounded-lg p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-medium text-gray-900">{course.class_name}</h3>
-                    <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
-                      {course.course_name}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-2">课程代码: {course.course_code}</p>
-                  <p className="text-sm text-gray-600 mb-2">学期: {course.semester}</p>
-                  <p className="text-sm text-gray-600 mb-2">上课时间: {course.class_time}</p>
-                  <p className="text-sm text-gray-600 mb-2">教室: {course.classroom}</p>
-                  <p className="text-sm text-gray-600">
-                    学生数: {course.current_students}/{course.max_students}
-                  </p>
-                  <div className="mt-3 flex space-x-2">
-                    <Link
-                      href="/teacher/grades"
-                      className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+            {!selectedClass ? (
+              <>
+                <h2 className="text-lg font-medium text-gray-900 mb-4">我的班级</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {(teacherCourses as any)?.map((course: any) => (
+                    <div key={course.class_id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div className="flex justify-between items-start mb-2">
+                        <h3 className="font-medium text-gray-900">{course.class_name}</h3>
+                        <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
+                          {course.course_name}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-2">课程代码: {course.course_code}</p>
+                      <p className="text-sm text-gray-600 mb-2">学期: {course.semester}</p>
+                      {course.class_time && (
+                        <p className="text-sm text-gray-600 mb-2">上课时间: {course.class_time}</p>
+                      )}
+                      {course.classroom && (
+                        <p className="text-sm text-gray-600 mb-2">教室: {course.classroom}</p>
+                      )}
+                      <p className="text-sm text-gray-600">
+                        学生数: {course.current_students}/{course.max_students}
+                      </p>
+                      <div className="mt-3 flex space-x-2">
+                        <button
+                          onClick={() => selectClass(course)}
+                          className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+                        >
+                          管理学生
+                        </button>
+                        <Link
+                          href="/teacher/grades"
+                          className="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
+                        >
+                          管理成绩
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {(!teacherCourses || (teacherCourses as any).length === 0) && (
+                  <p className="text-gray-500 text-center py-8">暂无分配的课程</p>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center">
+                    <button
+                      onClick={backToClassList}
+                      className="mr-3 text-blue-600 hover:text-blue-800"
                     >
-                      管理成绩
-                    </Link>
+                      ← 返回班级列表
+                    </button>
+                    <h2 className="text-lg font-medium text-gray-900">
+                      {selectedClass.class_name} - 学生管理
+                    </h2>
+                  </div>
+                  <span className="bg-blue-100 text-blue-800 text-sm px-3 py-1 rounded">
+                    {selectedClass.course_name}
+                  </span>
+                </div>
+                
+                <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-500">课程代码:</span>
+                      <p className="font-medium">{selectedClass.course_code}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">学期:</span>
+                      <p className="font-medium">{selectedClass.semester}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">学生数:</span>
+                      <p className="font-medium">{selectedClass.current_students}/{selectedClass.max_students}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">教室:</span>
+                      <p className="font-medium">{selectedClass.classroom || "未指定"}</p>
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
-            {(!teacherCourses || (teacherCourses as any).length === 0) && (
-              <p className="text-gray-500 text-center py-8">暂无分配的课程</p>
+
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">学号</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">姓名</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">专业</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">联系方式</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {classStudents?.map((student: any) => (
+                        <tr key={student.student_id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {student.student_id}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {student.user?.real_name || student.real_name}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {student.major?.major_name || "未指定"}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div>
+                              {student.user?.email && (
+                                <div>📧 {student.user.email}</div>
+                              )}
+                              {student.user?.phone && (
+                                <div>📞 {student.user.phone}</div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                              正常
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button
+                              onClick={() => openStudentDetail(student)}
+                              className="text-blue-600 hover:text-blue-900 mr-3"
+                            >
+                              查看详情
+                            </button>
+                            <button
+                              onClick={() => openEditStudent(student)}
+                              className="text-green-600 hover:text-green-900"
+                            >
+                              编辑信息
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {(!classStudents || classStudents.length === 0) && (
+                    <div className="text-center text-gray-500 py-8">
+                      暂无学生数据
+                    </div>
+                  )}
+                </div>
+              </>
             )}
           </div>
         )}
@@ -378,118 +571,308 @@ export default function TeacherDashboard() {
         )}
 
         {activeTab === "activities" && (
-          <div className="bg-white shadow rounded-lg p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-medium text-gray-900">班级活动管理</h2>
-              <Link
-                href="/teacher/activities"
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-              >
-                管理活动
-              </Link>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Activity Management Card */}
-              <div className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-blue-400 transition-colors">
-                <div className="text-center">
-                  <div className="bg-blue-100 p-3 rounded-lg inline-block mb-4">
-                    <span className="text-2xl">🎯</span>
+          <div className="space-y-6">
+            {/* Activity Stats Overview */}
+            {activityStats && (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-white shadow rounded-lg p-6">
+                  <div className="flex items-center">
+                    <div className="bg-blue-100 p-3 rounded-lg">
+                      <span className="text-2xl">🎯</span>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-2xl font-bold text-blue-600">
+                        {(activityStats as any).total_activities || 0}
+                      </p>
+                      <p className="text-sm text-gray-600">总活动数</p>
+                    </div>
                   </div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">创建活动</h3>
-                  <p className="text-gray-600 text-sm mb-4">
-                    创建班级学习、文体、志愿等各类活动
+                </div>
+
+                <div className="bg-white shadow rounded-lg p-6">
+                  <div className="flex items-center">
+                    <div className="bg-green-100 p-3 rounded-lg">
+                      <span className="text-2xl">✅</span>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-2xl font-bold text-green-600">
+                        {(activityStats as any).completed_count || 0}
+                      </p>
+                      <p className="text-sm text-gray-600">已完成</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white shadow rounded-lg p-6">
+                  <div className="flex items-center">
+                    <div className="bg-yellow-100 p-3 rounded-lg">
+                      <span className="text-2xl">⏰</span>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-2xl font-bold text-yellow-600">
+                        {(activityStats as any).ongoing_count || 0}
+                      </p>
+                      <p className="text-sm text-gray-600">进行中</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white shadow rounded-lg p-6">
+                  <div className="flex items-center">
+                    <div className="bg-purple-100 p-3 rounded-lg">
+                      <span className="text-2xl">💰</span>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-lg font-bold text-purple-600">
+                        ¥{Number((activityStats as any).total_budget || 0).toLocaleString()}
+                      </p>
+                      <p className="text-sm text-gray-600">总预算</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Activity Management */}
+            <div className="bg-white shadow rounded-lg p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-lg font-medium text-gray-900">我的活动</h2>
+                <Link
+                  href="/teacher/activities"
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                >
+                  创建新活动
+                </Link>
+              </div>
+
+              {teacherActivities && (teacherActivities as any).length > 0 ? (
+                <div className="space-y-4">
+                  {(teacherActivities as any).map((activity: any) => (
+                    <div key={activity.activity_id} className="border rounded-lg p-4 hover:bg-gray-50">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h3 className="font-medium text-gray-900">{activity.activity_name}</h3>
+                            <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                              activity.status === 'planned' ? 'bg-blue-100 text-blue-800' :
+                              activity.status === 'ongoing' ? 'bg-green-100 text-green-800' :
+                              activity.status === 'completed' ? 'bg-gray-100 text-gray-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {activity.status === 'planned' ? '计划中' :
+                               activity.status === 'ongoing' ? '进行中' :
+                               activity.status === 'completed' ? '已完成' : '已取消'}
+                            </span>
+                            <span className={`px-2 py-1 rounded text-xs ${
+                              activity.activity_type === 'lecture' ? 'bg-purple-100 text-purple-800' :
+                              activity.activity_type === 'workshop' ? 'bg-blue-100 text-blue-800' :
+                              activity.activity_type === 'field_trip' ? 'bg-green-100 text-green-800' :
+                              activity.activity_type === 'sports' ? 'bg-orange-100 text-orange-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {activity.activity_type}
+                            </span>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600 mb-2">
+                            <div>
+                              <span className="font-medium">课程：</span>
+                              {activity.class.course.course_name}
+                            </div>
+                            <div>
+                              <span className="font-medium">班级：</span>
+                              {activity.class.class_name}
+                            </div>
+                            <div>
+                              <span className="font-medium">开始时间：</span>
+                              {new Date(activity.start_time).toLocaleString()}
+                            </div>
+                            <div>
+                              <span className="font-medium">参与人数：</span>
+                              {activity.participant_count} / {activity.class.current_students}
+                            </div>
+                          </div>
+
+                          {activity.location && (
+                            <div className="text-sm text-gray-600 mb-2">
+                              <span className="font-medium">地点：</span>
+                              {activity.location}
+                            </div>
+                          )}
+
+                          {activity.description && (
+                            <div className="text-sm text-gray-600 mb-2">
+                              <span className="font-medium">描述：</span>
+                              {activity.description}
+                            </div>
+                          )}
+
+                          {activity.budget_amount > 0 && (
+                            <div className="text-sm text-gray-600">
+                              <span className="font-medium">预算：</span>
+                              ¥{Number(activity.budget_amount).toLocaleString()}
+                              {activity.actual_cost > 0 && (
+                                <span className="ml-2">
+                                  (实际支出: ¥{Number(activity.actual_cost).toLocaleString()})
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {activity.organizer && (
+                            <div className="text-sm text-gray-600 mt-2">
+                              <span className="font-medium">组织者：</span>
+                              {activity.organizer.user.real_name}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex flex-col space-y-2 ml-4">
+                          <Link
+                            href="/teacher/activities"
+                            className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 text-center"
+                          >
+                            详情管理
+                          </Link>
+                          {activity.participants && activity.participants.length > 0 && (
+                            <span className="px-3 py-1 text-sm bg-green-100 text-green-800 rounded text-center">
+                              {activity.participants.length} 人参与
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <div className="bg-gray-100 p-4 rounded-lg inline-block mb-4">
+                    <span className="text-4xl">🎯</span>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">还没有创建活动</h3>
+                  <p className="text-gray-600 mb-4">
+                    开始创建班级活动，增强学生参与度和班级凝聚力
                   </p>
                   <Link
                     href="/teacher/activities"
-                    className="inline-block bg-blue-50 text-blue-600 px-4 py-2 rounded hover:bg-blue-100"
+                    className="inline-block bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
                   >
-                    创建新活动
+                    创建第一个活动
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            {/* Quick Action Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Activity Creation Guide */}
+              <div className="bg-white shadow rounded-lg p-6">
+                <div className="text-center">
+                  <div className="bg-blue-100 p-3 rounded-lg inline-block mb-4">
+                    <span className="text-2xl">📝</span>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">活动创建指南</h3>
+                  <p className="text-gray-600 text-sm mb-4">
+                    了解如何创建和管理各类班级活动
+                  </p>
+                  <ul className="text-left text-sm text-gray-700 space-y-1 mb-4">
+                    <li className="flex items-center">
+                      <span className="text-green-500 mr-2">✓</span>
+                      学习类活动（讲座、研讨会）
+                    </li>
+                    <li className="flex items-center">
+                      <span className="text-green-500 mr-2">✓</span>
+                      文体活动（运动会、文艺表演）
+                    </li>
+                    <li className="flex items-center">
+                      <span className="text-green-500 mr-2">✓</span>
+                      志愿服务活动
+                    </li>
+                    <li className="flex items-center">
+                      <span className="text-green-500 mr-2">✓</span>
+                      社会实践活动
+                    </li>
+                  </ul>
+                  <Link
+                    href="/teacher/activities"
+                    className="block w-full text-center bg-blue-50 text-blue-600 py-2 rounded hover:bg-blue-100"
+                  >
+                    开始创建
                   </Link>
                 </div>
               </div>
 
-              {/* Activity Stats Card */}
-              <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-6">
+              {/* Participation Management */}
+              <div className="bg-white shadow rounded-lg p-6">
                 <div className="text-center">
-                  <div className="bg-green-200 p-3 rounded-lg inline-block mb-4">
-                    <span className="text-2xl">📊</span>
+                  <div className="bg-green-100 p-3 rounded-lg inline-block mb-4">
+                    <span className="text-2xl">👥</span>
                   </div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">活动统计</h3>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">参与管理</h3>
                   <p className="text-gray-600 text-sm mb-4">
-                    查看活动参与情况和统计数据
+                    跟踪学生报名和参与情况
                   </p>
+                  <ul className="text-left text-sm text-gray-700 space-y-1 mb-4">
+                    <li className="flex items-center">
+                      <span className="text-green-500 mr-2">✓</span>
+                      学生报名状态
+                    </li>
+                    <li className="flex items-center">
+                      <span className="text-green-500 mr-2">✓</span>
+                      出勤签到管理
+                    </li>
+                    <li className="flex items-center">
+                      <span className="text-green-500 mr-2">✓</span>
+                      活动反馈收集
+                    </li>
+                    <li className="flex items-center">
+                      <span className="text-green-500 mr-2">✓</span>
+                      参与度统计
+                    </li>
+                  </ul>
                   <Link
                     href="/teacher/activities"
-                    className="inline-block bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                    className="block w-full text-center bg-green-50 text-green-600 py-2 rounded hover:bg-green-100"
+                  >
+                    查看参与情况
+                  </Link>
+                </div>
+              </div>
+
+              {/* Activity Analytics */}
+              <div className="bg-white shadow rounded-lg p-6">
+                <div className="text-center">
+                  <div className="bg-purple-100 p-3 rounded-lg inline-block mb-4">
+                    <span className="text-2xl">📊</span>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">活动分析</h3>
+                  <p className="text-gray-600 text-sm mb-4">
+                    查看活动效果和数据统计
+                  </p>
+                  <ul className="text-left text-sm text-gray-700 space-y-1 mb-4">
+                    <li className="flex items-center">
+                      <span className="text-green-500 mr-2">✓</span>
+                      活动完成率统计
+                    </li>
+                    <li className="flex items-center">
+                      <span className="text-green-500 mr-2">✓</span>
+                      学生参与度分析
+                    </li>
+                    <li className="flex items-center">
+                      <span className="text-green-500 mr-2">✓</span>
+                      预算使用情况
+                    </li>
+                    <li className="flex items-center">
+                      <span className="text-green-500 mr-2">✓</span>
+                      活动效果评估
+                    </li>
+                  </ul>
+                  <Link
+                    href="/teacher/activities"
+                    className="block w-full text-center bg-purple-50 text-purple-600 py-2 rounded hover:bg-purple-100"
                   >
                     查看统计
                   </Link>
-                </div>
-              </div>
-
-              {/* Recent Activities Card */}
-              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-6">
-                <div className="text-center">
-                  <div className="bg-purple-200 p-3 rounded-lg inline-block mb-4">
-                    <span className="text-2xl">⏰</span>
-                  </div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">近期活动</h3>
-                  <p className="text-gray-600 text-sm mb-4">
-                    查看最近的活动安排和状态
-                  </p>
-                  <Link
-                    href="/teacher/activities"
-                    className="inline-block bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700"
-                  >
-                    查看活动
-                  </Link>
-                </div>
-              </div>
-            </div>
-
-            {/* Feature Highlights */}
-            <div className="mt-8 border-t pt-6">
-              <h3 className="text-md font-medium text-gray-900 mb-4">✨ 活动管理功能</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-start">
-                  <div className="bg-blue-100 p-2 rounded-lg mr-3">
-                    <span className="text-lg">📝</span>
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-gray-900">活动创建与管理</h4>
-                    <p className="text-sm text-gray-600">支持学习、文体、志愿等多种活动类型</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start">
-                  <div className="bg-green-100 p-2 rounded-lg mr-3">
-                    <span className="text-lg">👥</span>
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-gray-900">参与者管理</h4>
-                    <p className="text-sm text-gray-600">跟踪学生参与情况和出勤状态</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start">
-                  <div className="bg-yellow-100 p-2 rounded-lg mr-3">
-                    <span className="text-lg">💰</span>
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-gray-900">预算管理</h4>
-                    <p className="text-sm text-gray-600">活动预算制定和支出跟踪</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start">
-                  <div className="bg-purple-100 p-2 rounded-lg mr-3">
-                    <span className="text-lg">📈</span>
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-gray-900">状态跟踪</h4>
-                    <p className="text-sm text-gray-600">活动从计划到完成的全流程管理</p>
-                  </div>
                 </div>
               </div>
             </div>
@@ -566,6 +949,172 @@ export default function TeacherDashboard() {
           </div>
         )}
       </div>
+
+      {/* 学生详情模态框 */}
+      {showStudentDetail.isOpen && showStudentDetail.student && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-10 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 text-center mb-4">
+                学生详情 - {showStudentDetail.student.user?.real_name || showStudentDetail.student.real_name}
+              </h3>
+              <div className="px-7 py-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">学号</label>
+                    <p className="mt-1 text-sm text-gray-900">{showStudentDetail.student.student_id}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">姓名</label>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {showStudentDetail.student.user?.real_name || showStudentDetail.student.real_name}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">用户名</label>
+                    <p className="mt-1 text-sm text-gray-900">{showStudentDetail.student.user?.username}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">专业</label>
+                    <p className="mt-1 text-sm text-gray-900">{showStudentDetail.student.major?.major_name || "未指定"}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">年级</label>
+                    <p className="mt-1 text-sm text-gray-900">{showStudentDetail.student.grade || "未指定"}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">班号</label>
+                    <p className="mt-1 text-sm text-gray-900">{showStudentDetail.student.class_number || "未指定"}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">邮箱</label>
+                    <p className="mt-1 text-sm text-gray-900">{showStudentDetail.student.user?.email || "未设置"}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">手机号</label>
+                    <p className="mt-1 text-sm text-gray-900">{showStudentDetail.student.user?.phone || "未设置"}</p>
+                  </div>
+                </div>
+
+                {/* 选课记录 */}
+                {showStudentDetail.student.enrollments && showStudentDetail.student.enrollments.length > 0 && (
+                  <div className="mt-6">
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">选课记录</h4>
+                    <div className="max-h-40 overflow-y-auto">
+                      <div className="space-y-2">
+                        {showStudentDetail.student.enrollments.map((enrollment: any, index: number) => (
+                          <div key={index} className="flex justify-between items-center p-2 bg-gray-50 rounded text-sm">
+                            <span>{enrollment.class?.class_name || "未知班级"}</span>
+                            <span className={`px-2 py-1 rounded text-xs ${
+                              enrollment.status === "enrolled" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+                            }`}>
+                              {enrollment.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 成绩记录 */}
+                {showStudentDetail.student.grades && showStudentDetail.student.grades.length > 0 && (
+                  <div className="mt-6">
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">成绩记录</h4>
+                    <div className="max-h-40 overflow-y-auto">
+                      <div className="space-y-2">
+                        {showStudentDetail.student.grades.map((grade: any, index: number) => (
+                          <div key={index} className="p-2 bg-gray-50 rounded text-sm">
+                            <div className="flex justify-between items-center">
+                              <span className="font-medium">{grade.class?.course?.course_name || "未知课程"}</span>
+                              <span className="font-medium">总分: {grade.final_score || "未录入"}</span>
+                            </div>
+                            <div className="text-xs text-gray-600 mt-1">
+                              平时: {grade.regular_score || "N/A"} | 
+                              期中: {grade.midterm_score || "N/A"} | 
+                              期末: {grade.final_score || "N/A"}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-center mt-6">
+                <button
+                  onClick={() => setShowStudentDetail({ isOpen: false, student: null })}
+                  className="px-6 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                >
+                  关闭
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 编辑学生信息模态框 */}
+      {editingStudent.isOpen && editingStudent.student && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-10 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 text-center mb-4">
+                编辑学生信息 - {editingStudent.student.student_id}
+              </h3>
+              <div className="px-7 py-3">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">真实姓名 *</label>
+                    <input
+                      type="text"
+                      value={editForm.realName}
+                      onChange={(e) => setEditForm({ ...editForm, realName: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="请输入真实姓名"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">邮箱</label>
+                    <input
+                      type="email"
+                      value={editForm.email}
+                      onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="请输入邮箱地址"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">手机号</label>
+                    <input
+                      type="tel"
+                      value={editForm.phone}
+                      onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="请输入手机号"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-center space-x-4 mt-6">
+                <button
+                  onClick={() => setEditingStudent({ isOpen: false, student: null })}
+                  className="px-6 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleUpdateStudent}
+                  disabled={updateStudentMutation.isPending}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                >
+                  {updateStudentMutation.isPending ? "更新中..." : "确认更新"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

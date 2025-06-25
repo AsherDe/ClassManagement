@@ -230,8 +230,11 @@ export const activityRouter = createTRPCRouter({
       // 验证教师权限
       const activity = await ctx.db.class_activities.findUnique({
         where: { activity_id: input.activityId },
-        include: {
-          class: true
+        select: {
+          activity_id: true,
+          class_id: true,
+          activity_name: true,
+          status: true,
         }
       });
 
@@ -278,12 +281,14 @@ export const activityRouter = createTRPCRouter({
           ...(updateData.status && { status: updateData.status }),
           updated_at: new Date(),
         },
-        include: {
-          class: {
-            include: {
-              course: true,
-            }
-          }
+        select: {
+          activity_id: true,
+          class_id: true,
+          activity_name: true,
+          status: true,
+          start_time: true,
+          end_time: true,
+          updated_at: true,
         }
       });
 
@@ -304,9 +309,11 @@ export const activityRouter = createTRPCRouter({
       // 验证教师权限
       const activity = await ctx.db.class_activities.findUnique({
         where: { activity_id: input.activityId },
-        include: {
-          class: true,
-          participants: true,
+        select: {
+          activity_id: true,
+          class_id: true,
+          activity_name: true,
+          status: true,
         }
       });
 
@@ -327,8 +334,13 @@ export const activityRouter = createTRPCRouter({
         throw new Error("正在进行的活动不能删除");
       }
 
-      if (activity.status === 'completed' && activity.participants.length > 0) {
-        throw new Error("已完成且有参与者的活动不能删除，建议改为取消状态");
+      if (activity.status === 'completed') {
+        const participantCount = await ctx.db.activity_participants.count({
+          where: { activity_id: input.activityId }
+        });
+        if (participantCount > 0) {
+          throw new Error("已完成且有参与者的活动不能删除，建议改为取消状态");
+        }
       }
 
       // 先删除相关的参与者记录（由于设置了级联删除，这一步可能不需要）
@@ -382,11 +394,6 @@ export const activityRouter = createTRPCRouter({
       const activities = await ctx.db.class_activities.findMany({
         where,
         include: {
-          class: {
-            include: {
-              course: true,
-            }
-          },
           organizer: {
             include: {
               user: {
@@ -481,5 +488,335 @@ export const activityRouter = createTRPCRouter({
         WHERE cl.teacher_id = ${input.teacherId}
       `;
       return (stats as any)[0];
+    }),
+
+  // 学生查看可参与的活动列表
+  getActivitiesForStudent: publicProcedure
+    .input(z.object({
+      studentId: z.string(),
+      status: z.enum(["planned", "ongoing", "completed", "cancelled"]).optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      // 获取学生选课的班级ID列表
+      const studentEnrollments = await ctx.db.enrollments.findMany({
+        where: { 
+          student_id: input.studentId,
+          status: "enrolled"
+        },
+        select: { class_id: true }
+      });
+
+      const classIds = studentEnrollments.map(e => e.class_id);
+
+      if (classIds.length === 0) {
+        return [];
+      }
+
+      const where: Record<string, unknown> = {
+        class_id: { in: classIds }
+      };
+
+      if (input.status) {
+        where.status = input.status;
+      }
+
+      const activities = await ctx.db.class_activities.findMany({
+        where,
+        include: {
+          organizer: {
+            include: {
+              user: {
+                select: {
+                  real_name: true,
+                }
+              }
+            }
+          },
+          participants: {
+            where: {
+              student_id: input.studentId
+            }
+          }
+        },
+        orderBy: { start_time: "desc" },
+      });
+
+      // 添加学生参与状态
+      return activities.map(activity => ({
+        ...activity,
+        is_registered: activity.participants.length > 0,
+        my_participation: activity.participants[0] || null,
+      }));
+    }),
+
+  // 学生报名参加活动
+  registerForActivity: publicProcedure
+    .input(z.object({
+      activityId: z.number(),
+      studentId: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // 验证活动是否存在且可报名
+      const activity = await ctx.db.class_activities.findUnique({
+        where: { activity_id: input.activityId },
+        select: {
+          activity_id: true,
+          class_id: true,
+          status: true,
+        }
+      });
+
+      if (!activity) {
+        throw new Error("活动不存在");
+      }
+
+      if (activity.status === 'cancelled') {
+        throw new Error("活动已取消，无法报名");
+      }
+
+      if (activity.status === 'completed') {
+        throw new Error("活动已结束，无法报名");
+      }
+
+      // 验证学生是否在该活动的班级中
+      const studentInClass = await ctx.db.enrollments.findFirst({
+        where: {
+          student_id: input.studentId,
+          class_id: activity.class_id,
+          status: "enrolled"
+        }
+      });
+
+      if (!studentInClass) {
+        throw new Error("您不在该活动的班级中，无法报名");
+      }
+
+      // 检查是否已经报名
+      const existingRegistration = await ctx.db.activity_participants.findFirst({
+        where: {
+          activity_id: input.activityId,
+          student_id: input.studentId,
+        }
+      });
+
+      if (existingRegistration) {
+        throw new Error("您已经报名参加了该活动");
+      }
+
+      // 创建报名记录
+      const participation = await ctx.db.activity_participants.create({
+        data: {
+          activity_id: input.activityId,
+          student_id: input.studentId,
+          registration_time: new Date(),
+          attendance_status: 'registered',
+        },
+      });
+
+      // 更新活动参与人数
+      await ctx.db.class_activities.update({
+        where: { activity_id: input.activityId },
+        data: {
+          participant_count: {
+            increment: 1
+          }
+        }
+      });
+
+      return {
+        success: true,
+        message: "报名成功",
+        participation,
+      };
+    }),
+
+  // 学生取消报名
+  unregisterFromActivity: publicProcedure
+    .input(z.object({
+      activityId: z.number(),
+      studentId: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // 验证活动是否存在
+      const activity = await ctx.db.class_activities.findUnique({
+        where: { activity_id: input.activityId },
+      });
+
+      if (!activity) {
+        throw new Error("活动不存在");
+      }
+
+      if (activity.status === 'ongoing') {
+        throw new Error("活动正在进行中，无法取消报名");
+      }
+
+      if (activity.status === 'completed') {
+        throw new Error("活动已结束，无法取消报名");
+      }
+
+      // 查找报名记录
+      const participation = await ctx.db.activity_participants.findFirst({
+        where: {
+          activity_id: input.activityId,
+          student_id: input.studentId,
+        }
+      });
+
+      if (!participation) {
+        throw new Error("您没有报名参加该活动");
+      }
+
+      if (participation.attendance_status === 'attended') {
+        throw new Error("您已签到参加活动，无法取消报名");
+      }
+
+      // 删除报名记录
+      await ctx.db.activity_participants.delete({
+        where: {
+          participant_id: participation.participant_id
+        }
+      });
+
+      // 更新活动参与人数
+      await ctx.db.class_activities.update({
+        where: { activity_id: input.activityId },
+        data: {
+          participant_count: {
+            decrement: 1
+          }
+        }
+      });
+
+      return {
+        success: true,
+        message: "取消报名成功",
+      };
+    }),
+
+  // 学生签到活动
+  checkInActivity: publicProcedure
+    .input(z.object({
+      activityId: z.number(),
+      studentId: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // 验证活动是否存在且正在进行
+      const activity = await ctx.db.class_activities.findUnique({
+        where: { activity_id: input.activityId },
+      });
+
+      if (!activity) {
+        throw new Error("活动不存在");
+      }
+
+      if (activity.status !== 'ongoing') {
+        throw new Error("活动尚未开始或已结束，无法签到");
+      }
+
+      // 查找报名记录
+      const participation = await ctx.db.activity_participants.findFirst({
+        where: {
+          activity_id: input.activityId,
+          student_id: input.studentId,
+        }
+      });
+
+      if (!participation) {
+        throw new Error("您没有报名参加该活动，无法签到");
+      }
+
+      if (participation.attendance_status === 'attended') {
+        throw new Error("您已经签到过了");
+      }
+
+      // 更新签到状态
+      const updatedParticipation = await ctx.db.activity_participants.update({
+        where: {
+          participant_id: participation.participant_id
+        },
+        data: {
+          attendance_status: 'attended',
+        }
+      });
+
+      return {
+        success: true,
+        message: "签到成功",
+        participation: updatedParticipation,
+      };
+    }),
+
+  // 学生提交活动反馈
+  submitActivityFeedback: publicProcedure
+    .input(z.object({
+      activityId: z.number(),
+      studentId: z.string(),
+      feedback: z.string().min(1).max(500),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // 查找参与记录
+      const participation = await ctx.db.activity_participants.findFirst({
+        where: {
+          activity_id: input.activityId,
+          student_id: input.studentId,
+        }
+      });
+
+      if (!participation) {
+        throw new Error("您没有参加该活动，无法提交反馈");
+      }
+
+      if (participation.attendance_status !== 'attended') {
+        throw new Error("您没有签到参加活动，无法提交反馈");
+      }
+
+      // 更新反馈
+      const updatedParticipation = await ctx.db.activity_participants.update({
+        where: {
+          participant_id: participation.participant_id
+        },
+        data: {
+          feedback: input.feedback,
+        }
+      });
+
+      return {
+        success: true,
+        message: "反馈提交成功",
+        participation: updatedParticipation,
+      };
+    }),
+
+  // 学生查看参与的活动记录
+  getStudentActivityHistory: publicProcedure
+    .input(z.object({
+      studentId: z.string(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const participations = await ctx.db.activity_participants.findMany({
+        where: {
+          student_id: input.studentId,
+        },
+        include: {
+          activity: {
+            include: {
+              organizer: {
+                include: {
+                  user: {
+                    select: {
+                      real_name: true,
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        orderBy: {
+          registration_time: "desc"
+        }
+      });
+
+      return participations;
     }),
 });
