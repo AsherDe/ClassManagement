@@ -116,7 +116,14 @@
           </el-select>
         </el-form-item>
         <el-form-item label="成绩" prop="score">
-          <el-input-number v-model="form.score" :min="0" :max="100" :precision="1" style="width: 100%" />
+          <el-input-number 
+            v-model="form.score" 
+            :min="0" 
+            :max="100" 
+            :precision="1" 
+            placeholder="请输入成绩" 
+            style="width: 100%" 
+          />
         </el-form-item>
         <el-form-item label="成绩类型" prop="grade_type">
           <el-select v-model="form.grade_type" placeholder="请选择成绩类型" style="width: 100%">
@@ -252,7 +259,7 @@ const filters = reactive({
 const form = ref({
   student_id: '',
   course_id: '',
-  score: 0,
+  score: null, // 初始值为null，表示未输入
   grade_type: '',
   semester: '',
   academic_year: '',
@@ -324,11 +331,22 @@ const handleAdd = () => {
 const handleEdit = (row) => {
   isEdit.value = true
   currentId.value = row.id
-  Object.keys(form.value).forEach(key => {
-    if (row[key] !== undefined) {
-      form.value[key] = row[key]
-    }
-  })
+  
+  // 重置表单数据到默认值
+  resetForm()
+  
+  // 填充已有数据
+  form.value = {
+    student_id: row.student_id || '',
+    course_id: row.course_id || '',
+    score: row.score || 0,
+    grade_type: row.grade_type || '',
+    semester: row.semester || '',
+    academic_year: row.academic_year || '',
+    exam_date: row.exam_date || '',
+    remarks: row.remarks || ''
+  }
+  
   dialogVisible.value = true
 }
 
@@ -416,18 +434,24 @@ const handleImport = async () => {
 }
 
 const resetForm = () => {
-  formRef.value?.resetFields()
+  if (formRef.value) {
+    formRef.value.resetFields()
+  }
+  
   form.value = {
     student_id: '',
     course_id: '',
-    score: 0,
+    score: null, // 修改为null，表示未输入
     grade_type: '',
     semester: '',
     academic_year: '',
     exam_date: '',
     remarks: ''
   }
-  currentId.value = null
+  
+  if (!isEdit.value) {
+    currentId.value = null
+  }
 }
 
 const resetFilters = () => {

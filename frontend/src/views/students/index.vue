@@ -110,6 +110,103 @@
         </div>
       </div>
     </el-card>
+    
+    <!-- 编辑学生对话框 -->
+    <el-dialog
+      v-model="editDialogVisible"
+      title="编辑学生信息"
+      width="600px"
+      :before-close="handleEditCancel"
+    >
+      <el-form
+        ref="editFormRef"
+        :model="editForm"
+        :rules="editRules"
+        label-width="120px"
+      >
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="姓名" prop="name">
+              <el-input v-model="editForm.name" placeholder="请输入姓名" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="性别" prop="gender">
+              <el-select v-model="editForm.gender" placeholder="请选择性别" style="width: 100%">
+                <el-option label="男" value="male" />
+                <el-option label="女" value="female" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="出生日期" prop="birth_date">
+              <el-date-picker
+                v-model="editForm.birth_date"
+                type="date"
+                placeholder="请选择出生日期"
+                style="width: 100%"
+                value-format="YYYY-MM-DD"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="状态" prop="status">
+              <el-select v-model="editForm.status" placeholder="请选择状态" style="width: 100%">
+                <el-option label="在读" value="enrolled" />
+                <el-option label="休学" value="suspended" />
+                <el-option label="毕业" value="graduated" />
+                <el-option label="退学" value="dropped" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="联系电话" prop="phone">
+              <el-input v-model="editForm.phone" placeholder="请输入联系电话" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="邮箱" prop="email">
+              <el-input v-model="editForm.email" placeholder="请输入邮箱" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        
+        <el-form-item label="家庭住址" prop="home_address">
+          <el-input
+            v-model="editForm.home_address"
+            type="textarea"
+            :rows="2"
+            placeholder="请输入家庭住址"
+          />
+        </el-form-item>
+        
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="紧急联系人" prop="emergency_contact">
+              <el-input v-model="editForm.emergency_contact" placeholder="请输入紧急联系人" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="紧急联系电话" prop="emergency_phone">
+              <el-input v-model="editForm.emergency_phone" placeholder="请输入紧急联系电话" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="handleEditCancel">取消</el-button>
+          <el-button type="primary" @click="handleEditSubmit">确认</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -135,6 +232,28 @@ const searchForm = reactive({
   class_id: null,
   status: ''
 })
+
+const editDialogVisible = ref(false)
+const editForm = ref({
+  id: null,
+  name: '',
+  gender: '',
+  birth_date: '',
+  phone: '',
+  email: '',
+  home_address: '',
+  emergency_contact: '',
+  emergency_phone: '',
+  status: 'enrolled'
+})
+const editFormRef = ref()
+const editRules = {
+  name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
+  gender: [{ required: true, message: '请选择性别', trigger: 'change' }],
+  phone: [{ pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号码', trigger: 'blur' }],
+  email: [{ type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }],
+  emergency_phone: [{ pattern: /^1[3-9]\d{9}$/, message: '请输入正确的紧急联系人电话', trigger: 'blur' }]
+}
 
 const loadStudents = async () => {
   loading.value = true
@@ -183,7 +302,8 @@ const handleDetail = (row) => {
 }
 
 const handleEdit = (row) => {
-  ElMessage.info('编辑学生功能待开发')
+  editForm.value = { ...row }
+  editDialogVisible.value = true
 }
 
 const handleDelete = async (row) => {
@@ -239,6 +359,35 @@ const getStatusText = (status) => {
     dropped: '退学'
   }
   return statusMap[status] || status
+}
+
+const handleEditSubmit = async () => {
+  if (!editFormRef.value) return
+  
+  try {
+    const valid = await editFormRef.value.validate()
+    if (!valid) return
+    
+    const { id, ...updateData } = editForm.value
+    
+    // 格式化日期
+    if (updateData.birth_date) {
+      updateData.birth_date = new Date(updateData.birth_date).toISOString().split('T')[0]
+    }
+    
+    await studentService.updateStudent(id, updateData)
+    ElMessage.success('学生信息更新成功')
+    editDialogVisible.value = false
+    loadStudents()
+  } catch (error) {
+    console.error('更新学生信息失败:', error)
+    ElMessage.error('更新学生信息失败: ' + error.message)
+  }
+}
+
+const handleEditCancel = () => {
+  editDialogVisible.value = false
+  editFormRef.value?.resetFields()
 }
 
 onMounted(async () => {
