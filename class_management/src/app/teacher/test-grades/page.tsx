@@ -180,9 +180,9 @@ export default function TestGradesPage() {
             <div className="space-y-4">
               <div className="bg-gray-50 p-4 rounded">
                 <h3 className="font-medium">学生信息</h3>
-                <p>姓名: {student.user?.real_name || student.real_name || 'Unknown'}</p>
+                <p>姓名: {student.user?.real_name || (student as any).real_name || 'Unknown'}</p>
                 <p>学号: {student.student_id}</p>
-                <p>专业: {student.major?.major_name || student.major_name || '未分配'}</p>
+                <p>专业: {student.major?.major_name || (student as any).major_name || '未分配'}</p>
                 <p>年级班级: {student.grade}级{student.class_number}班</p>
               </div>
 

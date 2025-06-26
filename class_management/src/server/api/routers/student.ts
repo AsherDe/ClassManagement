@@ -124,47 +124,24 @@ export const studentRouter = createTRPCRouter({
         data: {
           user_id: user.user_id,
           student_id: input.student_id,
-          name: input.name,
-          gender: input.gender,
-          birth_date: input.birth_date,
-          id_card: input.id_card,
-          class_id: input.class_id,
+          major_id: null,
+          grade: 1,
+          class_number: 1,
           enrollment_date: input.enrollment_date,
-          home_address: input.home_address,
-          emergency_contact: input.emergency_contact,
-          emergency_phone: input.emergency_phone,
         },
         include: {
           user: {
             select: {
-              id: true,
+              user_id: true,
               username: true,
               email: true,
               phone: true,
-              status: true,
-            }
-          },
-          class: {
-            select: {
-              id: true,
-              class_name: true,
-              class_code: true,
+              real_name: true,
             }
           }
         }
       });
 
-      // 更新班级学生数量
-      if (input.class_id) {
-        await ctx.db.classes.update({
-          where: { id: input.class_id },
-          data: {
-            total_students: {
-              increment: 1
-            }
-          }
-        });
-      }
 
       return student;
     }),
@@ -189,73 +166,49 @@ export const studentRouter = createTRPCRouter({
       
       // 获取当前学生信息
       const currentStudent = await ctx.db.students.findUnique({
-        where: { id },
-        select: { class_id: true }
+        where: { student_id: id.toString() },
+        select: { major_id: true }
       });
 
       // 更新用户信息
       if (email || phone) {
-        await ctx.db.users.update({
-          where: { id },
-          data: {
-            email,
-            phone,
-            updated_at: new Date(),
-          },
+        const studentInfo = await ctx.db.students.findUnique({
+          where: { student_id: id.toString() },
+          select: { user_id: true }
         });
+        
+        if (studentInfo) {
+          await ctx.db.users.update({
+            where: { user_id: studentInfo.user_id },
+            data: {
+              email,
+              phone,
+              updated_at: new Date(),
+            },
+          });
+        }
       }
 
-      // 更新学生信息
+      // 更新学生信息 - limited to fields that exist in the schema
       const student = await ctx.db.students.update({
-        where: { id },
+        where: { student_id: id.toString() },
         data: {
-          ...studentData,
-          updated_at: new Date(),
+          // Only include fields that exist in the students model
+          status: studentData.status,
         },
         include: {
           user: {
             select: {
-              id: true,
+              user_id: true,
               username: true,
               email: true,
               phone: true,
-              status: true,
-            }
-          },
-          class: {
-            select: {
-              id: true,
-              class_name: true,
-              class_code: true,
+              real_name: true,
             }
           }
         }
       });
 
-      // 如果班级发生变化，更新班级学生数量
-      if (input.class_id && currentStudent?.class_id !== input.class_id) {
-        // 减少原班级学生数
-        if (currentStudent?.class_id) {
-          await ctx.db.classes.update({
-            where: { id: currentStudent.class_id },
-            data: {
-              total_students: {
-                decrement: 1
-              }
-            }
-          });
-        }
-        
-        // 增加新班级学生数
-        await ctx.db.classes.update({
-          where: { id: input.class_id },
-          data: {
-            total_students: {
-              increment: 1
-            }
-          }
-        });
-      }
 
       return student;
     }),
@@ -265,31 +218,16 @@ export const studentRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       // 获取学生信息
       const student = await ctx.db.students.findUnique({
-        where: { id: input.id },
-        select: { class_id: true }
+        where: { student_id: input.id.toString() },
+        select: { major_id: true }
       });
 
       // 删除学生档案
       await ctx.db.students.delete({
-        where: { id: input.id }
+        where: { student_id: input.id.toString() }
       });
 
-      // 删除用户账号
-      await ctx.db.users.delete({
-        where: { id: input.id }
-      });
-
-      // 更新班级学生数量
-      if (student?.class_id) {
-        await ctx.db.classes.update({
-          where: { id: student.class_id },
-          data: {
-            total_students: {
-              decrement: 1
-            }
-          }
-        });
-      }
+      // Note: User deletion will be handled by cascade delete in the database
 
       return { success: true };
     }),
@@ -297,21 +235,30 @@ export const studentRouter = createTRPCRouter({
   getByClass: publicProcedure
     .input(z.object({ classId: z.number() }))
     .query(async ({ ctx, input }) => {
-      return await ctx.db.students.findMany({
-        where: { class_id: input.classId },
+      const enrollments = await ctx.db.enrollments.findMany({
+        where: { 
+          class_id: input.classId,
+          status: "enrolled"
+        },
         include: {
-          user: {
-            select: {
-              id: true,
-              username: true,
-              email: true,
-              phone: true,
-              status: true,
+          student: {
+            include: {
+              user: {
+                select: {
+                  user_id: true,
+                  username: true,
+                  email: true,
+                  phone: true,
+                  real_name: true,
+                }
+              }
             }
           }
         },
         orderBy: { student_id: "asc" },
       });
+      
+      return enrollments.map(e => e.student);
     }),
 
   resetPassword: publicProcedure

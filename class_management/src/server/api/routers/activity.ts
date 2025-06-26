@@ -340,6 +340,22 @@ export const activityRouter = createTRPCRouter({
 
       const activities = await ctx.db.class_activities.findMany({
         where,
+        include: {
+          class: {
+            include: {
+              course: true
+            }
+          },
+          organizer: {
+            include: {
+              user: {
+                select: {
+                  real_name: true
+                }
+              }
+            }
+          }
+        },
         orderBy: { start_time: "desc" },
       });
 

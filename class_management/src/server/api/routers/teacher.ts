@@ -493,13 +493,11 @@ ORDER BY avg_gpa DESC;`
       const activity = await ctx.db.class_activities.findUnique({
         where: { activity_id: input.activityId },
         include: {
-          class: {
-            where: { teacher_id: input.teacherId }
-          }
+          class: true
         }
       });
 
-      if (!activity) {
+      if (!activity || activity.class.teacher_id !== input.teacherId) {
         throw new Error("您没有权限管理该活动");
       }
 

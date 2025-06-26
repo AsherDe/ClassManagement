@@ -214,8 +214,8 @@ export const adminRouter = createTRPCRouter({
         where: { class_id: input.classId, status: "enrolled" }
       });
 
-      if (currentEnrollments + input.studentIds.length > classInfo.max_students) {
-        throw new Error(`班级容量不足，当前 ${currentEnrollments} 人，最大容量 ${classInfo.max_students} 人`);
+      if (currentEnrollments + input.studentIds.length > (classInfo.max_students || 50)) {
+        throw new Error(`班级容量不足，当前 ${currentEnrollments} 人，最大容量 ${classInfo.max_students || 50} 人`);
       }
 
       // 批量创建选课记录
@@ -444,8 +444,8 @@ export const adminRouter = createTRPCRouter({
           select: { current_students: true }
         });
 
-        if (classInfo && classInfo.current_students > updateData.maxStudents) {
-          throw new Error(`无法设置最大学生数为 ${updateData.maxStudents}，当前已有 ${classInfo.current_students} 名学生`);
+        if (classInfo && (classInfo.current_students || 0) > updateData.maxStudents) {
+          throw new Error(`无法设置最大学生数为 ${updateData.maxStudents}，当前已有 ${classInfo.current_students || 0} 名学生`);
         }
       }
 
