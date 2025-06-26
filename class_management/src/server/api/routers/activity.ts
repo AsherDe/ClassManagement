@@ -699,6 +699,17 @@ export const activityRouter = createTRPCRouter({
         where: {
           student_id: input.studentId,
         },
+        include: {
+          activity: {
+            include: {
+              class: {
+                include: {
+                  course: true
+                }
+              }
+            }
+          }
+        },
         orderBy: {
           registration_time: "desc"
         }

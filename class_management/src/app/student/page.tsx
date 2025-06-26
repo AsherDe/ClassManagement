@@ -5,6 +5,7 @@ import { api } from "~/trpc/react";
 
 export default function StudentDashboard() {
   const router = useRouter();
+  const utils = api.useUtils();
   const [user, setUser] = useState<{username: string; role: string} | null>(null);
   const [activeTab, setActiveTab] = useState("info");
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -80,27 +81,27 @@ export default function StudentDashboard() {
   const registerActivityMutation = api.activity.registerForActivity.useMutation({
     onSuccess: () => {
       // Refresh activities data
-      void api.activity.getActivitiesForStudent.invalidate();
-      void api.activity.getStudentActivityHistory.invalidate();
+      void utils.activity.getActivitiesForStudent.invalidate();
+      void utils.activity.getStudentActivityHistory.invalidate();
     }
   });
   const unregisterActivityMutation = api.activity.unregisterFromActivity.useMutation({
     onSuccess: () => {
-      void api.activity.getActivitiesForStudent.invalidate();
-      void api.activity.getStudentActivityHistory.invalidate();
+      void utils.activity.getActivitiesForStudent.invalidate();
+      void utils.activity.getStudentActivityHistory.invalidate();
     }
   });
   const checkInActivityMutation = api.activity.checkInActivity.useMutation({
     onSuccess: () => {
-      void api.activity.getActivitiesForStudent.invalidate();
-      void api.activity.getStudentActivityHistory.invalidate();
+      void utils.activity.getActivitiesForStudent.invalidate();
+      void utils.activity.getStudentActivityHistory.invalidate();
     }
   });
   const submitFeedbackMutation = api.activity.submitActivityFeedback.useMutation({
     onSuccess: () => {
       setFeedbackModal({ show: false, activityId: null, participantId: null });
       setFeedbackText("");
-      void api.activity.getStudentActivityHistory.invalidate();
+      void utils.activity.getStudentActivityHistory.invalidate();
     }
   });
 
@@ -843,7 +844,7 @@ export default function StudentDashboard() {
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
                             <h4 className="font-medium text-gray-900">
-                              {participation.activity.activity_name}
+                              {participation.activity?.activity_name || '未知活动'}
                             </h4>
                             <span className={`px-2 py-1 rounded text-xs font-semibold ${
                               participation.attendance_status === 'attended' ? 'bg-green-100 text-green-800' :
@@ -866,7 +867,7 @@ export default function StudentDashboard() {
                             </div>
                             <div>
                               <span className="font-medium">活动时间：</span>
-                              {new Date(participation.activity.start_time).toLocaleDateString()}
+                              {participation.activity?.start_time ? new Date(participation.activity.start_time).toLocaleDateString() : '未知时间'}
                             </div>
                           </div>
 
@@ -884,7 +885,7 @@ export default function StudentDashboard() {
                                   onClick={() => {
                                     setFeedbackModal({
                                       show: true,
-                                      activityId: participation.activity.activity_id,
+                                      activityId: participation.activity?.activity_id || 0,
                                       participantId: participation.participant_id
                                     });
                                     setFeedbackText('');

@@ -7,6 +7,7 @@ import SqlDisplay from "~/components/SqlDisplay";
 
 export default function TeacherDashboard() {
   const router = useRouter();
+  const utils = api.useUtils();
   const [user, setUser] = useState<{username: string; role: string} | null>(null);
   const [activeTab, setActiveTab] = useState("classes");
   const [selectedClass, setSelectedClass] = useState<any>(null);
@@ -115,8 +116,8 @@ export default function TeacherDashboard() {
         requiredAttendance: false,
         classId: ""
       });
-      void api.activity.getActivitiesByTeacher.invalidate();
-      void api.activity.getTeacherActivityStats.invalidate();
+      void utils.activity.getActivitiesByTeacher.invalidate();
+      void utils.activity.getTeacherActivityStats.invalidate();
     },
     onError: (error) => {
       alert(`创建失败: ${error.message}`);
