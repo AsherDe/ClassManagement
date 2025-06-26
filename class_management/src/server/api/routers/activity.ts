@@ -21,28 +21,6 @@ export const activityRouter = createTRPCRouter({
 
       const activities = await ctx.db.class_activities.findMany({
         where,
-        include: {
-          class: {
-            include: {
-              course: {
-                select: {
-                  course_id: true,
-                  course_code: true,
-                  course_name: true,
-                }
-              }
-            }
-          },
-          organizer: {
-            include: {
-              user: {
-                select: {
-                  real_name: true,
-                }
-              }
-            }
-          }
-        },
         orderBy: { start_time: "desc" },
       });
       
@@ -55,41 +33,6 @@ export const activityRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const activity = await ctx.db.class_activities.findUnique({
         where: { activity_id: input.id },
-        include: {
-          class: {
-            include: {
-              course: {
-                select: {
-                  course_id: true,
-                  course_code: true,
-                  course_name: true,
-                }
-              }
-            }
-          },
-          organizer: {
-            include: {
-              user: {
-                select: {
-                  real_name: true,
-                }
-              }
-            }
-          },
-          participants: {
-            include: {
-              student: {
-                include: {
-                  user: {
-                    select: {
-                      real_name: true,
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
       });
       
       return activity;
@@ -101,22 +44,6 @@ export const activityRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const participants = await ctx.db.activity_participants.findMany({
         where: { activity_id: input.activityId },
-        include: {
-          student: {
-            include: {
-              user: {
-                select: {
-                  real_name: true,
-                }
-              },
-              major: {
-                select: {
-                  major_name: true,
-                }
-              }
-            }
-          }
-        },
         orderBy: { registration_time: "asc" }
       });
       
@@ -150,7 +77,7 @@ export const activityRouter = createTRPCRouter({
       }
 
       // 验证时间合理性
-      if (input.endTime && input.endTime <= input.startTime) {
+      if (input.endTime && new Date(input.endTime).getTime() <= new Date(input.startTime).getTime()) {
         throw new Error("结束时间必须晚于开始时间");
       }
 
@@ -413,41 +340,6 @@ export const activityRouter = createTRPCRouter({
 
       const activities = await ctx.db.class_activities.findMany({
         where,
-        include: {
-          class: {
-            include: {
-              course: {
-                select: {
-                  course_id: true,
-                  course_code: true,
-                  course_name: true,
-                }
-              }
-            }
-          },
-          organizer: {
-            include: {
-              user: {
-                select: {
-                  real_name: true,
-                }
-              }
-            }
-          },
-          participants: {
-            include: {
-              student: {
-                include: {
-                  user: {
-                    select: {
-                      real_name: true,
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
         orderBy: { start_time: "desc" },
       });
 
@@ -553,42 +445,10 @@ export const activityRouter = createTRPCRouter({
 
       const activities = await ctx.db.class_activities.findMany({
         where,
-        include: {
-          class: {
-            include: {
-              course: {
-                select: {
-                  course_id: true,
-                  course_code: true,
-                  course_name: true,
-                }
-              }
-            }
-          },
-          organizer: {
-            include: {
-              user: {
-                select: {
-                  real_name: true,
-                }
-              }
-            }
-          },
-          participants: {
-            where: {
-              student_id: input.studentId
-            }
-          }
-        },
         orderBy: { start_time: "desc" },
       });
 
-      // 添加学生参与状态
-      return activities.map(activity => ({
-        ...activity,
-        is_registered: activity.participants.length > 0,
-        my_participation: activity.participants[0] || null,
-      }));
+      return activities;
     }),
 
   // 学生报名参加活动
@@ -838,32 +698,6 @@ export const activityRouter = createTRPCRouter({
       const participations = await ctx.db.activity_participants.findMany({
         where: {
           student_id: input.studentId,
-        },
-        include: {
-          activity: {
-            include: {
-              class: {
-                include: {
-                  course: {
-                    select: {
-                      course_id: true,
-                      course_code: true,
-                      course_name: true,
-                    }
-                  }
-                }
-              },
-              organizer: {
-                include: {
-                  user: {
-                    select: {
-                      real_name: true,
-                    }
-                  }
-                }
-              }
-            }
-          }
         },
         orderBy: {
           registration_time: "desc"

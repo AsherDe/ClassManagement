@@ -94,6 +94,15 @@ export default function TeacherActivitiesPage() {
       return;
     }
 
+    // Validate time inputs
+    const startTime = new Date(formData.startTime);
+    const endTime = formData.endTime ? new Date(formData.endTime) : undefined;
+
+    if (endTime && endTime <= startTime) {
+      alert("结束时间必须晚于开始时间");
+      return;
+    }
+
     // Map Chinese activity types to English enum values
     const activityTypeMap: Record<string, string> = {
       "学习": "lecture",
@@ -111,8 +120,8 @@ export default function TeacherActivitiesPage() {
         activityType: (activityTypeMap[formData.activityType] || "other") as "lecture" | "seminar" | "workshop" | "field_trip" | "competition" | "social" | "sports" | "cultural" | "volunteer" | "other",
         description: formData.description,
         location: formData.location,
-        startTime: new Date(formData.startTime),
-        endTime: formData.endTime ? new Date(formData.endTime) : undefined,
+        startTime,
+        endTime,
         budgetAmount: formData.budgetAmount,
         requiredAttendance: formData.requiredAttendance,
       });
