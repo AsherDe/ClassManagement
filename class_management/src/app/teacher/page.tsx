@@ -79,7 +79,7 @@ export default function TeacherDashboard() {
     { enabled: !!user }
   );
 
-  const { data: activityParticipants } = api.activity.getActivityParticipants.useQuery(
+  const { data: activityParticipants } = api.activity.getParticipants.useQuery(
     { activityId: showActivityDetail.activity?.activity_id },
     { enabled: showActivityDetail.show && !!showActivityDetail.activity }
   );
