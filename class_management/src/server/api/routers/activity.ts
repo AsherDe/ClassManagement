@@ -445,10 +445,36 @@ export const activityRouter = createTRPCRouter({
 
       const activities = await ctx.db.class_activities.findMany({
         where,
+        include: {
+          class: {
+            include: {
+              course: true
+            }
+          },
+          organizer: {
+            include: {
+              user: {
+                select: {
+                  real_name: true
+                }
+              }
+            }
+          },
+          participants: {
+            where: {
+              student_id: input.studentId
+            }
+          }
+        },
         orderBy: { start_time: "desc" },
       });
 
-      return activities;
+      // Transform the data to include computed fields expected by frontend
+      return activities.map(activity => ({
+        ...activity,
+        is_registered: activity.participants.length > 0,
+        my_participation: activity.participants[0] || null,
+      }));
     }),
 
   // 学生报名参加活动
