@@ -20,6 +20,6 @@ try {
 
   console.log('✅ 部署完成！');
 } catch (error) {
-  console.error('❌ 部署失败:', error.message);
+  console.error('❌ 部署失败:', error instanceof Error ? error.message : String(error));
   process.exit(1);
 }
