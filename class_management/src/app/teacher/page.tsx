@@ -23,6 +23,19 @@ export default function TeacherDashboard() {
     email: "",
     phone: "",
   });
+  const [showCreateActivity, setShowCreateActivity] = useState(false);
+  const [activityForm, setActivityForm] = useState({
+    activityName: "",
+    activityType: "学习",
+    description: "",
+    location: "",
+    startTime: "",
+    endTime: "",
+    budgetAmount: "",
+    requiredAttendance: false,
+    classId: ""
+  });
+  const [showActivityDetail, setShowActivityDetail] = useState({ show: false, activity: null });
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -66,6 +79,11 @@ export default function TeacherDashboard() {
     { enabled: !!user }
   );
 
+  const { data: activityParticipants } = api.activity.getActivityParticipants.useQuery(
+    { activityId: showActivityDetail.activity?.activity_id },
+    { enabled: showActivityDetail.show && !!showActivityDetail.activity }
+  );
+
   const { data: activityStats } = api.activity.getTeacherActivityStats.useQuery(
     { teacherId },
     { enabled: !!user }
@@ -79,6 +97,29 @@ export default function TeacherDashboard() {
     },
     onError: (error) => {
       alert(`更新失败: ${error.message}`);
+    },
+  });
+
+  const createActivityMutation = api.activity.createActivity.useMutation({
+    onSuccess: () => {
+      alert("活动创建成功");
+      setShowCreateActivity(false);
+      setActivityForm({
+        activityName: "",
+        activityType: "学习",
+        description: "",
+        location: "",
+        startTime: "",
+        endTime: "",
+        budgetAmount: "",
+        requiredAttendance: false,
+        classId: ""
+      });
+      void api.activity.getActivitiesByTeacher.invalidate();
+      void api.activity.getTeacherActivityStats.invalidate();
+    },
+    onError: (error) => {
+      alert(`创建失败: ${error.message}`);
     },
   });
 
@@ -112,6 +153,38 @@ export default function TeacherDashboard() {
       email: editForm.email || undefined,
       phone: editForm.phone || undefined,
     });
+  };
+
+  const handleCreateActivity = () => {
+    if (!activityForm.activityName.trim()) {
+      alert("请填写活动名称");
+      return;
+    }
+    if (!activityForm.startTime) {
+      alert("请选择开始时间");
+      return;
+    }
+    if (!activityForm.classId) {
+      alert("请选择班级");
+      return;
+    }
+
+    createActivityMutation.mutate({
+      classId: parseInt(activityForm.classId),
+      activityName: activityForm.activityName,
+      activityType: activityForm.activityType,
+      description: activityForm.description || undefined,
+      location: activityForm.location || undefined,
+      startTime: new Date(activityForm.startTime),
+      endTime: activityForm.endTime ? new Date(activityForm.endTime) : undefined,
+      organizerId: null, // Teacher-created activities don't have student organizer
+      budgetAmount: activityForm.budgetAmount ? parseFloat(activityForm.budgetAmount) : 0,
+      requiredAttendance: activityForm.requiredAttendance
+    });
+  };
+
+  const openActivityDetail = (activity: any) => {
+    setShowActivityDetail({ show: true, activity });
   };
 
   const selectClass = (classItem: any) => {
@@ -670,12 +743,12 @@ export default function TeacherDashboard() {
             <div className="bg-white shadow rounded-lg p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-lg font-medium text-gray-900">我的活动</h2>
-                <Link
-                  href="/teacher/activities"
+                <button
+                  onClick={() => setShowCreateActivity(true)}
                   className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
                 >
                   创建新活动
-                </Link>
+                </button>
               </div>
 
               {teacherActivities && (teacherActivities as any).length > 0 ? (
@@ -761,15 +834,15 @@ export default function TeacherDashboard() {
                         </div>
 
                         <div className="flex flex-col space-y-2 ml-4">
-                          <Link
-                            href="/teacher/activities"
+                          <button
+                            onClick={() => openActivityDetail(activity)}
                             className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 text-center"
                           >
-                            详情管理
-                          </Link>
-                          {activity.participants && activity.participants.length > 0 && (
+                            查看详情
+                          </button>
+                          {activity.participant_count > 0 && (
                             <span className="px-3 py-1 text-sm bg-green-100 text-green-800 rounded text-center">
-                              {activity.participants.length} 人参与
+                              {activity.participant_count} 人参与
                             </span>
                           )}
                         </div>
@@ -786,12 +859,12 @@ export default function TeacherDashboard() {
                   <p className="text-gray-600 mb-4">
                     开始创建班级活动，增强学生参与度和班级凝聚力
                   </p>
-                  <Link
-                    href="/teacher/activities"
+                  <button
+                    onClick={() => setShowCreateActivity(true)}
                     className="inline-block bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
                   >
                     创建第一个活动
-                  </Link>
+                  </button>
                 </div>
               )}
             </div>
@@ -826,12 +899,12 @@ export default function TeacherDashboard() {
                       社会实践活动
                     </li>
                   </ul>
-                  <Link
-                    href="/teacher/activities"
+                  <button
+                    onClick={() => setShowCreateActivity(true)}
                     className="block w-full text-center bg-blue-50 text-blue-600 py-2 rounded hover:bg-blue-100"
                   >
                     开始创建
-                  </Link>
+                  </button>
                 </div>
               </div>
 
@@ -863,12 +936,12 @@ export default function TeacherDashboard() {
                       参与度统计
                     </li>
                   </ul>
-                  <Link
-                    href="/teacher/activities"
+                  <button
+                    onClick={() => setActiveTab("activities")}
                     className="block w-full text-center bg-green-50 text-green-600 py-2 rounded hover:bg-green-100"
                   >
                     查看参与情况
-                  </Link>
+                  </button>
                 </div>
               </div>
 
@@ -900,12 +973,12 @@ export default function TeacherDashboard() {
                       活动效果评估
                     </li>
                   </ul>
-                  <Link
-                    href="/teacher/activities"
+                  <button
+                    onClick={() => setActiveTab("activities")}
                     className="block w-full text-center bg-purple-50 text-purple-600 py-2 rounded hover:bg-purple-100"
                   >
                     查看统计
-                  </Link>
+                  </button>
                 </div>
               </div>
             </div>
@@ -1142,6 +1215,295 @@ export default function TeacherDashboard() {
                   className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                 >
                   {updateStudentMutation.isPending ? "更新中..." : "确认更新"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 创建活动模态框 */}
+      {showCreateActivity && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-10 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 text-center mb-4">
+                创建新活动
+              </h3>
+              <div className="px-7 py-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">活动名称 *</label>
+                    <input
+                      type="text"
+                      value={activityForm.activityName}
+                      onChange={(e) => setActivityForm({ ...activityForm, activityName: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="请输入活动名称"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">活动类型</label>
+                    <select
+                      value={activityForm.activityType}
+                      onChange={(e) => setActivityForm({ ...activityForm, activityType: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="学习">学习</option>
+                      <option value="文体">文体</option>
+                      <option value="志愿">志愿</option>
+                      <option value="聚会">聚会</option>
+                      <option value="其他">其他</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">选择班级 *</label>
+                    <select
+                      value={activityForm.classId}
+                      onChange={(e) => setActivityForm({ ...activityForm, classId: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">请选择班级</option>
+                      {(teacherCourses as any)?.map((course: any) => (
+                        <option key={course.class_id} value={course.class_id}>
+                          {course.class_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">活动地点</label>
+                    <input
+                      type="text"
+                      value={activityForm.location}
+                      onChange={(e) => setActivityForm({ ...activityForm, location: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="请输入活动地点"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">开始时间 *</label>
+                    <input
+                      type="datetime-local"
+                      value={activityForm.startTime}
+                      onChange={(e) => setActivityForm({ ...activityForm, startTime: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">结束时间</label>
+                    <input
+                      type="datetime-local"
+                      value={activityForm.endTime}
+                      onChange={(e) => setActivityForm({ ...activityForm, endTime: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">预算金额</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={activityForm.budgetAmount}
+                      onChange={(e) => setActivityForm({ ...activityForm, budgetAmount: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="requiredAttendance"
+                      checked={activityForm.requiredAttendance}
+                      onChange={(e) => setActivityForm({ ...activityForm, requiredAttendance: e.target.checked })}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="requiredAttendance" className="ml-2 block text-sm text-gray-900">
+                      必须参加
+                    </label>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">活动描述</label>
+                  <textarea
+                    value={activityForm.description}
+                    onChange={(e) => setActivityForm({ ...activityForm, description: e.target.value })}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="请输入活动详细描述..."
+                  />
+                </div>
+              </div>
+              <div className="flex justify-center space-x-4 mt-6">
+                <button
+                  onClick={() => setShowCreateActivity(false)}
+                  className="px-6 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleCreateActivity}
+                  disabled={createActivityMutation.isPending}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                >
+                  {createActivityMutation.isPending ? "创建中..." : "创建活动"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 活动详情模态框 */}
+      {showActivityDetail.show && showActivityDetail.activity && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-10 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 text-center mb-4">
+                活动详情 - {(showActivityDetail.activity as any).activity_name}
+              </h3>
+              <div className="px-7 py-3">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* 活动基本信息 */}
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-gray-900 mb-3">活动信息</h4>
+                    <div className="space-y-3 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">活动名称：</span>
+                        <span className="font-medium">{(showActivityDetail.activity as any).activity_name}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">活动类型：</span>
+                        <span className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">
+                          {(showActivityDetail.activity as any).activity_type}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">状态：</span>
+                        <span className={`px-2 py-1 rounded text-xs ${
+                          (showActivityDetail.activity as any).status === 'planned' ? 'bg-blue-100 text-blue-800' :
+                          (showActivityDetail.activity as any).status === 'ongoing' ? 'bg-green-100 text-green-800' :
+                          (showActivityDetail.activity as any).status === 'completed' ? 'bg-gray-100 text-gray-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {(showActivityDetail.activity as any).status === 'planned' ? '计划中' :
+                           (showActivityDetail.activity as any).status === 'ongoing' ? '进行中' :
+                           (showActivityDetail.activity as any).status === 'completed' ? '已完成' : '已取消'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">班级：</span>
+                        <span className="font-medium">{(showActivityDetail.activity as any).class?.class_name}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">开始时间：</span>
+                        <span className="font-medium">
+                          {new Date((showActivityDetail.activity as any).start_time).toLocaleString('zh-CN')}
+                        </span>
+                      </div>
+                      {(showActivityDetail.activity as any).end_time && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">结束时间：</span>
+                          <span className="font-medium">
+                            {new Date((showActivityDetail.activity as any).end_time).toLocaleString('zh-CN')}
+                          </span>
+                        </div>
+                      )}
+                      {(showActivityDetail.activity as any).location && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">地点：</span>
+                          <span className="font-medium">{(showActivityDetail.activity as any).location}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">参与人数：</span>
+                        <span className="font-medium text-blue-600">
+                          {(showActivityDetail.activity as any).participant_count} / {(showActivityDetail.activity as any).class?.current_students}
+                        </span>
+                      </div>
+                      {(showActivityDetail.activity as any).budget_amount > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">预算：</span>
+                          <span className="font-medium text-green-600">
+                            ¥{Number((showActivityDetail.activity as any).budget_amount).toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+                      {(showActivityDetail.activity as any).required_attendance && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">出勤要求：</span>
+                          <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded">必须参加</span>
+                        </div>
+                      )}
+                    </div>
+                    {(showActivityDetail.activity as any).description && (
+                      <div className="mt-4">
+                        <span className="text-gray-600 text-sm">活动描述：</span>
+                        <div className="mt-2 p-3 bg-white rounded border text-sm text-gray-700">
+                          {(showActivityDetail.activity as any).description}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 参与学生列表 */}
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-gray-900 mb-3">
+                      参与学生 ({(showActivityDetail.activity as any).participant_count || 0} 人)
+                    </h4>
+                    <div className="max-h-96 overflow-y-auto space-y-2">
+                      {(showActivityDetail.activity as any).participants && (showActivityDetail.activity as any).participants.length > 0 ? (
+                        (showActivityDetail.activity as any).participants.map((participant: any) => (
+                          <div key={participant.participant_id} className="bg-white p-3 rounded border">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <div className="font-medium text-gray-900">
+                                  {participant.student?.user?.real_name || participant.student?.real_name}
+                                </div>
+                                <div className="text-sm text-gray-600">
+                                  学号: {participant.student?.student_id}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  报名时间: {new Date(participant.registration_time).toLocaleString('zh-CN')}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <span className={`px-2 py-1 rounded text-xs ${
+                                  participant.attendance_status === 'attended' ? 'bg-green-100 text-green-800' :
+                                  participant.attendance_status === 'registered' ? 'bg-blue-100 text-blue-800' :
+                                  participant.attendance_status === 'absent' ? 'bg-red-100 text-red-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {participant.attendance_status === 'attended' ? '已参加' :
+                                   participant.attendance_status === 'registered' ? '已报名' :
+                                   participant.attendance_status === 'absent' ? '缺席' : '已取消'}
+                                </span>
+                              </div>
+                            </div>
+                            {participant.feedback && (
+                              <div className="mt-2 p-2 bg-blue-50 rounded text-sm">
+                                <span className="font-medium text-blue-800">反馈：</span>
+                                <div className="text-blue-700 mt-1">{participant.feedback}</div>
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center text-gray-500 py-8">
+                          <div className="text-4xl mb-2">👥</div>
+                          <p>暂无学生报名参与</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-center mt-6">
+                <button
+                  onClick={() => setShowActivityDetail({ show: false, activity: null })}
+                  className="px-6 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                >
+                  关闭
                 </button>
               </div>
             </div>

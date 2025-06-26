@@ -9,6 +9,9 @@ export default function StudentDashboard() {
   const [activeTab, setActiveTab] = useState("info");
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editedInfo, setEditedInfo] = useState({ email: "", phone: "" });
+  const [activityFilter, setActivityFilter] = useState("all");
+  const [feedbackModal, setFeedbackModal] = useState({ show: false, activityId: null, participantId: null });
+  const [feedbackText, setFeedbackText] = useState("");
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -74,9 +77,32 @@ export default function StudentDashboard() {
     { enabled: !!user }
   );
 
-  const registerActivityMutation = api.activity.registerForActivity.useMutation();
-  const unregisterActivityMutation = api.activity.unregisterFromActivity.useMutation();
-  const checkInActivityMutation = api.activity.checkInActivity.useMutation();
+  const registerActivityMutation = api.activity.registerForActivity.useMutation({
+    onSuccess: () => {
+      // Refresh activities data
+      void api.activity.getActivitiesForStudent.invalidate();
+      void api.activity.getStudentActivityHistory.invalidate();
+    }
+  });
+  const unregisterActivityMutation = api.activity.unregisterFromActivity.useMutation({
+    onSuccess: () => {
+      void api.activity.getActivitiesForStudent.invalidate();
+      void api.activity.getStudentActivityHistory.invalidate();
+    }
+  });
+  const checkInActivityMutation = api.activity.checkInActivity.useMutation({
+    onSuccess: () => {
+      void api.activity.getActivitiesForStudent.invalidate();
+      void api.activity.getStudentActivityHistory.invalidate();
+    }
+  });
+  const submitFeedbackMutation = api.activity.submitActivityFeedback.useMutation({
+    onSuccess: () => {
+      setFeedbackModal({ show: false, activityId: null, participantId: null });
+      setFeedbackText("");
+      void api.activity.getStudentActivityHistory.invalidate();
+    }
+  });
 
   const handleLogout = () => {
     localStorage.removeItem("user");
@@ -586,18 +612,34 @@ export default function StudentDashboard() {
           <div className="space-y-6">
             {/* 可参与的活动 */}
             <div className="bg-white shadow rounded-lg p-6">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">可参与的活动</h2>
-              {/* Debug info */}
-              <div className="mb-4 p-2 bg-gray-100 text-sm">
-                <p>Debug - Student ID: {studentId}</p>
-                <p>Debug - Activities data: {JSON.stringify(activities ? 'loaded' : 'null')}</p>
-                <p>Debug - Activities length: {(activities as any)?.length || 'N/A'}</p>
-                <p>Debug - Activities type: {typeof activities}</p>
-                <p>Debug - Is array: {Array.isArray(activities) ? 'yes' : 'no'}</p>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-medium text-gray-900">可参与的活动</h2>
+                <div className="flex items-center space-x-2">
+                  <select
+                    value={activityFilter}
+                    onChange={(e) => setActivityFilter(e.target.value)}
+                    className="px-3 py-1 border border-gray-300 rounded text-sm"
+                  >
+                    <option value="all">全部活动</option>
+                    <option value="registered">已报名</option>
+                    <option value="unregistered">未报名</option>
+                    <option value="planned">计划中</option>
+                    <option value="ongoing">进行中</option>
+                  </select>
+                </div>
               </div>
               {activities && (activities as any).length > 0 ? (
                 <div className="space-y-4">
-                  {(activities as any).map((activity: any) => (
+                  {(activities as any)
+                    .filter((activity: any) => {
+                      if (activityFilter === "all") return true;
+                      if (activityFilter === "registered") return activity.is_registered;
+                      if (activityFilter === "unregistered") return !activity.is_registered;
+                      if (activityFilter === "planned") return activity.status === 'planned';
+                      if (activityFilter === "ongoing") return activity.status === 'ongoing';
+                      return true;
+                    })
+                    .map((activity: any) => (
                     <div key={activity.activity_id} className="border rounded-lg p-4 hover:bg-gray-50">
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
@@ -625,17 +667,55 @@ export default function StudentDashboard() {
                             </div>
                             <div>
                               <span className="font-medium">类型：</span>
-                              {activity.activity_type}
+                              <span className={`px-2 py-1 rounded text-xs ${
+                                activity.activity_type === '学习' ? 'bg-blue-100 text-blue-800' :
+                                activity.activity_type === '文体' ? 'bg-green-100 text-green-800' :
+                                activity.activity_type === '志愿' ? 'bg-purple-100 text-purple-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {activity.activity_type}
+                              </span>
                             </div>
                             <div>
                               <span className="font-medium">开始时间：</span>
-                              {new Date(activity.start_time).toLocaleString()}
+                              {new Date(activity.start_time).toLocaleString('zh-CN', {
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
                             </div>
                             <div>
                               <span className="font-medium">参与人数：</span>
-                              {activity.participant_count}
+                              <span className="font-semibold text-blue-600">{activity.participant_count}</span>
                             </div>
                           </div>
+
+                          {activity.end_time && (
+                            <div className="text-sm text-gray-600 mb-2">
+                              <span className="font-medium">结束时间：</span>
+                              {new Date(activity.end_time).toLocaleString('zh-CN', {
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </div>
+                          )}
+
+                          {activity.budget_amount && Number(activity.budget_amount) > 0 && (
+                            <div className="text-sm text-gray-600 mb-2">
+                              <span className="font-medium">预算：</span>
+                              ¥{Number(activity.budget_amount).toFixed(2)}
+                              {activity.actual_cost && Number(activity.actual_cost) > 0 && (
+                                <span className="ml-2 text-green-600">
+                                  (实际花费: ¥{Number(activity.actual_cost).toFixed(2)})
+                                </span>
+                              )}
+                            </div>
+                          )}
 
                           {activity.location && (
                             <div className="text-sm text-gray-600 mb-2">
@@ -647,14 +727,26 @@ export default function StudentDashboard() {
                           {activity.description && (
                             <div className="text-sm text-gray-600 mb-3">
                               <span className="font-medium">描述：</span>
-                              {activity.description}
+                              <div className="mt-1 p-2 bg-gray-50 rounded text-gray-700">
+                                {activity.description}
+                              </div>
                             </div>
                           )}
 
                           {activity.organizer && (
-                            <div className="text-sm text-gray-600">
+                            <div className="text-sm text-gray-600 mb-2">
                               <span className="font-medium">组织者：</span>
-                              {activity.organizer?.user?.real_name || 'Unknown Organizer'}
+                              <span className="text-blue-600 font-medium">
+                                {activity.organizer?.user?.real_name || 'Unknown Organizer'}
+                              </span>
+                            </div>
+                          )}
+
+                          {activity.required_attendance && (
+                            <div className="text-sm mb-2">
+                              <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-xs font-medium">
+                                必须参加
+                              </span>
                             </div>
                           )}
                         </div>
@@ -716,7 +808,20 @@ export default function StudentDashboard() {
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-500 text-center py-8">暂无可参与的活动</p>
+                <div className="text-center py-8">
+                  <div className="text-gray-400 mb-2">
+                    <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <p className="text-gray-500">
+                    {activityFilter === 'all' ? '暂无可参与的活动' :
+                     activityFilter === 'registered' ? '暂无已报名的活动' :
+                     activityFilter === 'unregistered' ? '暂无未报名的活动' :
+                     activityFilter === 'planned' ? '暂无计划中的活动' :
+                     '暂无进行中的活动'}
+                  </p>
+                </div>
               )}
             </div>
 
@@ -765,11 +870,31 @@ export default function StudentDashboard() {
                             </div>
                           </div>
 
-                          {participation.feedback && (
+                          {participation.feedback ? (
                             <div className="mt-2 text-sm text-gray-600">
                               <span className="font-medium">我的反馈：</span>
-                              {participation.feedback}
+                              <div className="mt-1 p-2 bg-blue-50 rounded text-gray-700">
+                                {participation.feedback}
+                              </div>
                             </div>
+                          ) : (
+                            participation.attendance_status === 'attended' && (
+                              <div className="mt-2">
+                                <button
+                                  onClick={() => {
+                                    setFeedbackModal({
+                                      show: true,
+                                      activityId: participation.activity.activity_id,
+                                      participantId: participation.participant_id
+                                    });
+                                    setFeedbackText('');
+                                  }}
+                                  className="px-3 py-1 text-sm bg-orange-600 text-white rounded hover:bg-orange-700"
+                                >
+                                  提交反馈
+                                </button>
+                              </div>
+                            )
                           )}
                         </div>
                       </div>
@@ -777,12 +902,66 @@ export default function StudentDashboard() {
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-500 text-center py-8">暂无活动参与记录</p>
+                <div className="text-center py-8">
+                  <div className="text-gray-400 mb-2">
+                    <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <p className="text-gray-500">暂无活动参与记录</p>
+                  <p className="text-sm text-gray-400 mt-1">参与活动后，记录会显示在这里</p>
+                </div>
               )}
             </div>
           </div>
         )}
       </div>
+
+      {/* 反馈提交模态框 */}
+      {feedbackModal.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">提交活动反馈</h3>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                请分享您对这次活动的感想和建议：
+              </label>
+              <textarea
+                value={feedbackText}
+                onChange={(e) => setFeedbackText(e.target.value)}
+                rows={4}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="请输入您的反馈..."
+              />
+            </div>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setFeedbackModal({ show: false, activityId: null, participantId: null });
+                  setFeedbackText('');
+                }}
+                className="px-4 py-2 text-sm border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => {
+                  if (feedbackModal.participantId && feedbackText.trim()) {
+                    submitFeedbackMutation.mutate({
+                      participantId: feedbackModal.participantId,
+                      feedback: feedbackText.trim()
+                    });
+                  }
+                }}
+                disabled={submitFeedbackMutation.isPending || !feedbackText.trim()}
+                className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+              >
+                {submitFeedbackMutation.isPending ? '提交中...' : '提交反馈'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
