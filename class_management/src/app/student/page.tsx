@@ -946,9 +946,10 @@ export default function StudentDashboard() {
               </button>
               <button
                 onClick={() => {
-                  if (feedbackModal.participantId && feedbackText.trim()) {
+                  if (feedbackModal.activityId && feedbackText.trim()) {
                     submitFeedbackMutation.mutate({
-                      participantId: feedbackModal.participantId,
+                      activityId: feedbackModal.activityId,
+                      studentId: studentId,
                       feedback: feedbackText.trim()
                     });
                   }

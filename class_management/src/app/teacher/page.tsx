@@ -26,7 +26,7 @@ export default function TeacherDashboard() {
   const [showCreateActivity, setShowCreateActivity] = useState(false);
   const [activityForm, setActivityForm] = useState({
     activityName: "",
-    activityType: "学习",
+    activityType: "lecture",
     description: "",
     location: "",
     startTime: "",
@@ -100,13 +100,13 @@ export default function TeacherDashboard() {
     },
   });
 
-  const createActivityMutation = api.activity.createActivity.useMutation({
+  const createActivityMutation = api.activity.createByTeacher.useMutation({
     onSuccess: () => {
       alert("活动创建成功");
       setShowCreateActivity(false);
       setActivityForm({
         activityName: "",
-        activityType: "学习",
+        activityType: "lecture",
         description: "",
         location: "",
         startTime: "",
@@ -171,13 +171,14 @@ export default function TeacherDashboard() {
 
     createActivityMutation.mutate({
       classId: parseInt(activityForm.classId),
+      teacherId: teacherId,
       activityName: activityForm.activityName,
-      activityType: activityForm.activityType,
+      activityType: activityForm.activityType as "lecture" | "seminar" | "workshop" | "field_trip" | "competition" | "social" | "sports" | "cultural" | "volunteer" | "other",
       description: activityForm.description || undefined,
       location: activityForm.location || undefined,
       startTime: new Date(activityForm.startTime),
       endTime: activityForm.endTime ? new Date(activityForm.endTime) : undefined,
-      organizerId: null, // Teacher-created activities don't have student organizer
+      organizerId: undefined, // Teacher-created activities don't have student organizer
       budgetAmount: activityForm.budgetAmount ? parseFloat(activityForm.budgetAmount) : 0,
       requiredAttendance: activityForm.requiredAttendance
     });
@@ -1249,11 +1250,16 @@ export default function TeacherDashboard() {
                       onChange={(e) => setActivityForm({ ...activityForm, activityType: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="学习">学习</option>
-                      <option value="文体">文体</option>
-                      <option value="志愿">志愿</option>
-                      <option value="聚会">聚会</option>
-                      <option value="其他">其他</option>
+                      <option value="lecture">讲座</option>
+                      <option value="seminar">研讨会</option>
+                      <option value="workshop">工作坊</option>
+                      <option value="field_trip">实地考察</option>
+                      <option value="competition">竞赛</option>
+                      <option value="social">社交活动</option>
+                      <option value="sports">体育活动</option>
+                      <option value="cultural">文化活动</option>
+                      <option value="volunteer">志愿服务</option>
+                      <option value="other">其他</option>
                     </select>
                   </div>
                   <div>
