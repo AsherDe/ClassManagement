@@ -286,7 +286,7 @@ export default function TeacherDashboard() {
                         <p className="text-sm text-gray-600 mb-2">教室: {course.classroom}</p>
                       )}
                       <p className="text-sm text-gray-600">
-                        学生数: {course.current_students}/{course.max_students}
+                        学生数: {course.current_students || 0}/{course.max_students || 0}
                       </p>
                       <div className="mt-3 flex space-x-2">
                         <button
@@ -340,7 +340,7 @@ export default function TeacherDashboard() {
                     </div>
                     <div>
                       <span className="text-gray-500">学生数:</span>
-                      <p className="font-medium">{selectedClass.current_students}/{selectedClass.max_students}</p>
+                      <p className="font-medium">{selectedClass.current_students || 0}/{selectedClass.max_students || 0}</p>
                     </div>
                     <div>
                       <span className="text-gray-500">教室:</span>
@@ -589,7 +589,7 @@ export default function TeacherDashboard() {
                       <div>
                         <h4 className="font-medium text-gray-900">{course.class_name}</h4>
                         <p className="text-sm text-gray-600">
-                          {course.current_students} 名学生 • {course.course_name}
+                          {course.current_students || 0} 名学生 • {course.course_name}
                         </p>
                       </div>
                       <Link
@@ -796,7 +796,7 @@ export default function TeacherDashboard() {
                             </div>
                             <div>
                               <span className="font-medium">参与人数：</span>
-                              {activity.participant_count} / {activity.class.current_students}
+                              {activity.participant_count} / {activity.class?.current_students || 0}
                             </div>
                           </div>
 
@@ -1424,7 +1424,7 @@ export default function TeacherDashboard() {
                       <div className="flex justify-between">
                         <span className="text-gray-600">参与人数：</span>
                         <span className="font-medium text-blue-600">
-                          {(showActivityDetail.activity as any).participant_count} / {(showActivityDetail.activity as any).class?.current_students}
+                          {(showActivityDetail.activity as any).participant_count} / {(showActivityDetail.activity as any).class?.current_students || 0}
                         </span>
                       </div>
                       {(showActivityDetail.activity as any).budget_amount > 0 && (

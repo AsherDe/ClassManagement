@@ -1222,7 +1222,7 @@ export default function AdminDashboard() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700">学生数</label>
                     <p className="mt-1 text-sm text-gray-900">
-                      {classDetailModal.classData.current_students || 0} / {classDetailModal.classData.max_students}
+                      {classDetailModal.classData.current_students || 0} / {classDetailModal.classData.max_students || 0}
                     </p>
                   </div>
                   <div>
