@@ -159,9 +159,19 @@ export default function TeacherActivitiesPage() {
 
   // Debug: Log activities data
   console.log("Raw activities data:", activities);
+  console.log("Activities type:", typeof activities);
+  console.log("Activities is array?", Array.isArray(activities));
+  console.log("Activities length:", activities?.length);
   console.log("Filtered activities:", filteredActivities);
+  console.log("Filtered activities length:", filteredActivities.length);
   console.log("Selected tab:", selectedTab);
   console.log("Search term:", searchTerm);
+  
+  // Additional debug info
+  if (activities && activities.length > 0) {
+    console.log("First activity:", activities[0]);
+    console.log("Activity structure:", Object.keys(activities[0] || {}));
+  }
 
   return (
     <div className="container mx-auto p-6">

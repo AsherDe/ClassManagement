@@ -696,11 +696,11 @@ export default function AdminDashboard() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {allStudents?.map((student: any) => (
-                    <tr key={student.student_id || student.student_code || student.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{student.student_id || student.student_code}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.real_name || student.name}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.user?.username || 'N/A'}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.major_name || '计算机科学'}</td>
+                    <tr key={student.students?.student_id || student.user_id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{student.students?.student_id || 'N/A'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.real_name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.username}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.students?.major?.major_name || '未指定专业'}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
                           正常

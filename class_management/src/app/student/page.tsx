@@ -587,6 +587,14 @@ export default function StudentDashboard() {
             {/* 可参与的活动 */}
             <div className="bg-white shadow rounded-lg p-6">
               <h2 className="text-lg font-medium text-gray-900 mb-4">可参与的活动</h2>
+              {/* Debug info */}
+              <div className="mb-4 p-2 bg-gray-100 text-sm">
+                <p>Debug - Student ID: {studentId}</p>
+                <p>Debug - Activities data: {JSON.stringify(activities ? 'loaded' : 'null')}</p>
+                <p>Debug - Activities length: {(activities as any)?.length || 'N/A'}</p>
+                <p>Debug - Activities type: {typeof activities}</p>
+                <p>Debug - Is array: {Array.isArray(activities) ? 'yes' : 'no'}</p>
+              </div>
               {activities && (activities as any).length > 0 ? (
                 <div className="space-y-4">
                   {(activities as any).map((activity: any) => (
